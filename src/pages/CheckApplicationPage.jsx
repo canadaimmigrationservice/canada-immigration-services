@@ -8,9 +8,6 @@ import VisaDocuments from "../components/VisaDocuments";
 import ApplicationPassportInstructions from "../components/ApplicationPassportInstructions";
 import DecisionSection from "../components/DecisionSection";
 import { getApplicationByNumber } from "../services/applicationService";
-import { getApplicantMessages } from "../services/messageService";
-import { getApplicantDocuments } from "../services/documentService";
-import { getVisibleVisaDocuments } from "../services/visaDocumentService";
 
 function CheckApplicationPage() {
   const [application, setApplication] = useState(null);
@@ -29,7 +26,9 @@ function CheckApplicationPage() {
     setVisaDocuments([]);
 
     try {
-      const result = await getApplicationByNumber(applicationNumber);
+      const result = await getApplicationByNumber(
+        applicationNumber
+      );
 
       if (!result) {
         setError(
@@ -40,19 +39,11 @@ function CheckApplicationPage() {
 
       setApplication(result);
 
-      const [
-        applicationMessages,
-        applicationDocuments,
-        availableVisaDocuments
-      ] = await Promise.all([
-        getApplicantMessages(result.id),
-        getApplicantDocuments(result.id),
-        getVisibleVisaDocuments(result.id)
-      ]);
-
-      setMessages(applicationMessages);
-      setApplicantDocuments(applicationDocuments);
-      setVisaDocuments(availableVisaDocuments);
+      setMessages(result.messages || []);
+      setApplicantDocuments(
+        result.applicant_documents || []
+      );
+      setVisaDocuments(result.visa_documents || []);
     } catch (requestError) {
       console.error(requestError);
 
@@ -91,7 +82,9 @@ function CheckApplicationPage() {
               documents={applicantDocuments}
             />
 
-            <VisaDocuments documents={visaDocuments} />
+            <VisaDocuments
+              documents={visaDocuments}
+            />
           </div>
         )}
       </div>
