@@ -1,68 +1,147 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Loading from "../components/Loading";
-import ErrorMessage from "../components/ErrorMessage";
-import EmptyState from "../components/EmptyState";
-import { getVisibleVisaServices } from "../services/visaService";
+import AlertMessage from "../components/AlertMessage";
+import {
+  getVisibleVisaServices
+} from "../services/visaService";
+import {
+  getPublicWebsiteSettings,
+  settingsToObject
+} from "../services/websiteService";
+
+const DEFAULT_CONTENT = {
+  visa_services_title:
+    "Canadian Visa and Immigration Services",
+  visa_services_description:
+    "Explore our available Canadian visa and immigration services and choose the service that matches your application needs."
+};
 
 function VisaServicesPage() {
-  const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [services, setServices] =
+    useState([]);
+
+  const [settings, setSettings] =
+    useState(DEFAULT_CONTENT);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
 
   useEffect(() => {
-    async function loadServices() {
+    let mounted = true;
+
+    async function loadContent() {
       try {
-        const data = await getVisibleVisaServices();
-        setServices(data);
-      } catch (requestError) {
-        console.error(requestError);
-        setError(
-          "We could not load the available visa services. Please try again later."
+        const [
+          websiteSettings,
+          visaServices
+        ] = await Promise.all([
+          getPublicWebsiteSettings(),
+          getVisibleVisaServices()
+        ]);
+
+        if (!mounted) return;
+
+        setSettings({
+          ...DEFAULT_CONTENT,
+          ...settingsToObject(
+            websiteSettings
+          )
+        });
+
+        setServices(visaServices);
+      } catch (loadError) {
+        console.error(
+          "Unable to load visa services:",
+          loadError
         );
+
+        if (mounted) {
+          setError(
+            "Visa services could not be loaded at this time."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
-    loadServices();
+    loadContent();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  if (loading) {
+    return (
+      <main className="section">
+        <div className="container">
+          <Loading message="Loading visa services..." />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="section">
       <div className="container">
-        <div className="section-heading">
-          <span className="eyebrow">Visa Services</span>
-          <h1>Immigration and Visa Services</h1>
-          <p>
-            Explore the immigration and visa services currently
-            available.
-          </p>
-        </div>
-
-        {loading && (
-          <Loading message="Loading visa services..." />
-        )}
-
-        {!loading && error && <ErrorMessage message={error} />}
-
-        {!loading && !error && services.length === 0 && (
-          <EmptyState
-            title="No services available"
-            message="There are currently no visa services available."
+        {error && (
+          <AlertMessage
+            type="error"
+            title="Visa Services"
+            message={error}
           />
         )}
 
-        {!loading && !error && services.length > 0 && (
+        <div className="section-heading">
+          <span className="eyebrow">
+            Visa Services
+          </span>
+
+          <h1>
+            {settings.visa_services_title}
+          </h1>
+
+          <p>
+            {settings.visa_services_description}
+          </p>
+        </div>
+
+        {services.length === 0 ? (
+          <div className="empty-state">
+            <h2>
+              No services are currently available
+            </h2>
+
+            <p>
+              Please check back later for available
+              Canadian immigration services.
+            </p>
+          </div>
+        ) : (
           <div className="card-grid">
             {services.map((service) => (
-              <article className="card" key={service.id}>
-                <h2>{service.name}</h2>
+              <article
+                className="card"
+                key={service.id}
+              >
+                <span className="eyebrow">
+                  Visa Service
+                </span>
+
+                <h2>
+                  {service.name}
+                </h2>
 
                 <p>
                   {service.short_description ||
-                    service.description ||
-                    "Learn more about this service."}
+                    "Learn more about this Canadian immigration service."}
                 </p>
 
                 <Link
