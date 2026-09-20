@@ -21,6 +21,7 @@ import AdminApplicationDetailsPage from "./pages/admin/AdminApplicationDetailsPa
 import AdminVisaManagementPage from "./pages/admin/AdminVisaManagementPage";
 import AdminApplicantDocumentsPage from "./pages/admin/AdminApplicantDocumentsPage";
 import AdminVisaDocumentsPage from "./pages/admin/AdminVisaDocumentsPage";
+import AdminMessagesPage from "./pages/admin/AdminMessagesPage";
 
 function NotFound() {
   return (
@@ -83,6 +84,11 @@ function App() {
             <Route
               path="visa-documents"
               element={<AdminVisaDocumentsPage />}
+            />
+
+            <Route
+              path="messages"
+              element={<AdminMessagesPage />}
             />
           </Route>
         </Route>
