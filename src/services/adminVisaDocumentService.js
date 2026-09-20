@@ -16,11 +16,20 @@ export async function getAdminVisaDocuments(filters = {}) {
     .order("created_at", { ascending: false });
 
   if (filters.applicationId) {
-    query = query.eq("application_id", filters.applicationId);
+    query = query.eq(
+      "application_id",
+      filters.applicationId
+    );
   }
 
-  if (filters.visible !== undefined && filters.visible !== "") {
-    query = query.eq("is_visible", filters.visible === true);
+  if (
+    filters.visible !== undefined &&
+    filters.visible !== ""
+  ) {
+    query = query.eq(
+      "is_visible",
+      filters.visible === true
+    );
   }
 
   const { data, error } = await query;
@@ -35,7 +44,35 @@ export async function getAdminVisaDocuments(filters = {}) {
   return data || [];
 }
 
-export async function createVisaDocument(documentData) {
+async function runAdminDocumentAction(body) {
+  const { data, error } =
+    await supabase.functions.invoke(
+      "admin-document-action",
+      {
+        body
+      }
+    );
+
+  if (error) {
+    throw new Error(
+      error.message ||
+        "The administrator document action could not be completed."
+    );
+  }
+
+  if (!data?.success) {
+    throw new Error(
+      data?.error ||
+        "The administrator document action could not be completed."
+    );
+  }
+
+  return data;
+}
+
+export async function createVisaDocument(
+  documentData
+) {
   if (!documentData?.application_id) {
     throw new Error("Application ID is required.");
   }
@@ -57,14 +94,18 @@ export async function createVisaDocument(documentData) {
         documentData.description?.trim() || null,
       file_name:
         documentData.file_name?.trim() || null,
-      storage_path: documentData.storage_path.trim(),
+      storage_path:
+        documentData.storage_path.trim(),
       mime_type:
         documentData.mime_type?.trim() || null,
       file_size:
-        Number.isFinite(Number(documentData.file_size))
+        Number.isFinite(
+          Number(documentData.file_size)
+        )
           ? Number(documentData.file_size)
           : null,
-      is_visible: documentData.is_visible !== false
+      is_visible:
+        documentData.is_visible !== false
     })
     .select("*")
     .single();
@@ -104,13 +145,20 @@ export async function updateVisaDocument(
   const cleanUpdates = {};
 
   for (const field of allowedFields) {
-    if (Object.prototype.hasOwnProperty.call(updates, field)) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        updates,
+        field
+      )
+    ) {
       cleanUpdates[field] = updates[field];
     }
   }
 
   if (Object.keys(cleanUpdates).length === 0) {
-    throw new Error("No document changes were provided.");
+    throw new Error(
+      "No document changes were provided."
+    );
   }
 
   if (
@@ -120,10 +168,13 @@ export async function updateVisaDocument(
     )
   ) {
     if (!cleanUpdates.title?.trim()) {
-      throw new Error("Document title is required.");
+      throw new Error(
+        "Document title is required."
+      );
     }
 
-    cleanUpdates.title = cleanUpdates.title.trim();
+    cleanUpdates.title =
+      cleanUpdates.title.trim();
   }
 
   if (
@@ -133,7 +184,8 @@ export async function updateVisaDocument(
     )
   ) {
     cleanUpdates.description =
-      cleanUpdates.description?.trim() || null;
+      cleanUpdates.description?.trim() ||
+      null;
   }
 
   if (
@@ -143,7 +195,8 @@ export async function updateVisaDocument(
     )
   ) {
     cleanUpdates.file_name =
-      cleanUpdates.file_name?.trim() || null;
+      cleanUpdates.file_name?.trim() ||
+      null;
   }
 
   if (
@@ -153,7 +206,9 @@ export async function updateVisaDocument(
     )
   ) {
     if (!cleanUpdates.storage_path?.trim()) {
-      throw new Error("Document storage path is required.");
+      throw new Error(
+        "Document storage path is required."
+      );
     }
 
     cleanUpdates.storage_path =
@@ -211,12 +266,14 @@ export async function deleteAdminVisaDocument(
     throw new Error("Document ID is required.");
   }
 
-  const { data: document, error: fetchError } =
-    await supabase
-      .from("visa_documents")
-      .select("id, storage_path")
-      .eq("id", documentId)
-      .maybeSingle();
+  const {
+    data: document,
+    error: fetchError
+  } = await supabase
+    .from("visa_documents")
+    .select("id, storage_path")
+    .eq("id", documentId)
+    .maybeSingle();
 
   if (fetchError) {
     throw new Error(
@@ -226,20 +283,17 @@ export async function deleteAdminVisaDocument(
   }
 
   if (!document) {
-    throw new Error("Visa document could not be found.");
+    throw new Error(
+      "Visa document could not be found."
+    );
   }
 
   if (document.storage_path) {
-    const { error: storageError } = await supabase.storage
-      .from("visa-documents")
-      .remove([document.storage_path]);
-
-    if (storageError) {
-      throw new Error(
-        storageError.message ||
-          "The document file could not be removed."
-      );
-    }
+    await runAdminDocumentAction({
+      action: "delete",
+      bucket: "visa-documents",
+      storage_path: document.storage_path
+    });
   }
 
   const { error } = await supabase
@@ -253,4 +307,97 @@ export async function deleteAdminVisaDocument(
         "The visa document record could not be deleted."
     );
   }
+}
+
+export async function getAdminVisaDocumentSignedUrl(
+  storagePath
+) {
+  if (!storagePath?.trim()) {
+    throw new Error("Storage path is required.");
+  }
+
+  const result =
+    await runAdminDocumentAction({
+      action: "signed-url",
+      bucket: "visa-documents",
+      storage_path: storagePath.trim(),
+      expires_in: 300
+    });
+
+  return result.signed_url;
+}
+
+export async function uploadAdminVisaDocument({
+  applicationId,
+  file,
+  storagePath
+}) {
+  if (!applicationId) {
+    throw new Error(
+      "Application ID is required."
+    );
+  }
+
+  if (!(file instanceof File)) {
+    throw new Error(
+      "A document file is required."
+    );
+  }
+
+  if (!storagePath?.trim()) {
+    throw new Error(
+      "Storage path is required."
+    );
+  }
+
+  const formData = new FormData();
+
+  formData.append(
+    "action",
+    "upload"
+  );
+
+  formData.append(
+    "bucket",
+    "visa-documents"
+  );
+
+  formData.append(
+    "storage_path",
+    storagePath.trim()
+  );
+
+  formData.append(
+    "application_id",
+    applicationId
+  );
+
+  formData.append(
+    "file",
+    file
+  );
+
+  const { data, error } =
+    await supabase.functions.invoke(
+      "admin-document-action",
+      {
+        body: formData
+      }
+    );
+
+  if (error) {
+    throw new Error(
+      error.message ||
+        "The visa document could not be uploaded."
+    );
+  }
+
+  if (!data?.success) {
+    throw new Error(
+      data?.error ||
+        "The visa document could not be uploaded."
+    );
+  }
+
+  return data;
 }
