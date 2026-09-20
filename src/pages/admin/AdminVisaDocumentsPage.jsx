@@ -1,38 +1,31 @@
 import { useEffect, useState } from "react";
-import Loading from "../../components/Loading";
 import AlertMessage from "../../components/AlertMessage";
+import Loading from "../../components/Loading";
 import {
-  getAdminVisaDocuments,
   createVisaDocument,
-  updateVisaDocument,
+  deleteAdminVisaDocument,
+  getAdminVisaDocuments,
+  getAdminVisaDocumentSignedUrl,
   setVisaDocumentVisibility,
-  deleteAdminVisaDocument
+  uploadAdminVisaDocument
 } from "../../services/adminVisaDocumentService";
-import {
-  formatDateTime,
-  formatFileSize
-} from "../../lib/formatters";
+import { formatFileSize, formatDateTime } from "../../lib/formatters";
 
-const emptyForm = {
+const EMPTY_FORM = {
   application_id: "",
   title: "",
   description: "",
-  file_name: "",
-  storage_path: "",
-  mime_type: "",
-  file_size: "",
   is_visible: true
 };
 
 function AdminVisaDocumentsPage() {
   const [documents, setDocuments] = useState([]);
-  const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [file, setFile] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
 
   async function loadDocuments() {
     setLoading(true);
@@ -41,15 +34,15 @@ function AdminVisaDocumentsPage() {
     try {
       const data = await getAdminVisaDocuments();
       setDocuments(data);
-    } catch (requestError) {
+    } catch (loadError) {
       console.error(
         "Unable to load visa documents:",
-        requestError
+        loadError
       );
 
       setError(
-        requestError?.message ||
-          "Visa documents could not be loaded. Please try again."
+        loadError?.message ||
+          "Visa documents could not be loaded."
       );
     } finally {
       setLoading(false);
@@ -61,49 +54,59 @@ function AdminVisaDocumentsPage() {
   }, []);
 
   function handleChange(event) {
-    const { name, value, type, checked } = event.target;
+    const { name, value, type, checked } =
+      event.target;
 
     setForm((current) => ({
       ...current,
-      [name]: type === "checkbox" ? checked : value
+      [name]:
+        type === "checkbox" ? checked : value
     }));
   }
 
-  function startCreate() {
-    setEditingId(null);
-    setForm(emptyForm);
-    setError("");
-    setSuccess("");
+  function handleFileChange(event) {
+    const selectedFile =
+      event.target.files?.[0] || null;
+
+    setFile(selectedFile);
   }
 
-  function startEdit(document) {
-    setEditingId(document.id);
+  function resetForm() {
+    setForm(EMPTY_FORM);
+    setFile(null);
 
-    setForm({
-      application_id: document.application_id || "",
-      title: document.title || "",
-      description: document.description || "",
-      file_name: document.file_name || "",
-      storage_path: document.storage_path || "",
-      mime_type: document.mime_type || "",
-      file_size: document.file_size ?? "",
-      is_visible: document.is_visible !== false
-    });
+    const fileInput =
+      document.getElementById(
+        "visa-document-file"
+      );
 
-    setError("");
-    setSuccess("");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
+    if (fileInput) {
+      fileInput.value = "";
+    }
   }
 
-  function cancelEdit() {
-    setEditingId(null);
-    setForm(emptyForm);
-    setError("");
-    setSuccess("");
+  function createStoragePath(
+    applicationId,
+    selectedFile
+  ) {
+    const extension =
+      selectedFile.name.includes(".")
+        ? selectedFile.name
+            .split(".")
+            .pop()
+            .toLowerCase()
+        : "";
+
+    const uniquePart =
+      `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 10)}`;
+
+    return [
+      applicationId,
+      uniquePart +
+        (extension ? `.${extension}` : "")
+    ].join("/");
   }
 
   async function handleSubmit(event) {
@@ -111,48 +114,84 @@ function AdminVisaDocumentsPage() {
 
     if (saving) return;
 
-    setSaving(true);
     setError("");
     setSuccess("");
 
+    if (!form.application_id.trim()) {
+      setError("Application ID is required.");
+      return;
+    }
+
+    if (!form.title.trim()) {
+      setError("Document title is required.");
+      return;
+    }
+
+    if (!file) {
+      setError("Please select a document file.");
+      return;
+    }
+
+    setSaving(true);
+
     try {
-      if (editingId) {
-        await updateVisaDocument(editingId, {
-          title: form.title,
-          description: form.description,
-          file_name: form.file_name,
-          storage_path: form.storage_path,
-          mime_type: form.mime_type,
-          file_size: form.file_size,
-          is_visible: form.is_visible
+      const storagePath = createStoragePath(
+        form.application_id.trim(),
+        file
+      );
+
+      const uploadResult =
+        await uploadAdminVisaDocument({
+          applicationId:
+            form.application_id.trim(),
+          file,
+          storagePath
         });
 
-        setSuccess("Visa document updated successfully.");
-      } else {
-        await createVisaDocument(form);
+      await createVisaDocument({
+        application_id:
+          form.application_id.trim(),
+        title: form.title,
+        description: form.description,
+        file_name:
+          uploadResult.file_name ||
+          file.name,
+        storage_path:
+          uploadResult.storage_path ||
+          storagePath,
+        mime_type:
+          uploadResult.mime_type ||
+          file.type,
+        file_size:
+          uploadResult.file_size ||
+          file.size,
+        is_visible: form.is_visible
+      });
 
-        setSuccess("Visa document created successfully.");
-      }
+      setSuccess(
+        "Visa document uploaded successfully."
+      );
 
-      setEditingId(null);
-      setForm(emptyForm);
+      resetForm();
       await loadDocuments();
-    } catch (requestError) {
+    } catch (saveError) {
       console.error(
-        "Unable to save visa document:",
-        requestError
+        "Unable to upload visa document:",
+        saveError
       );
 
       setError(
-        requestError?.message ||
-          "The visa document could not be saved."
+        saveError?.message ||
+          "The visa document could not be uploaded."
       );
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleVisibilityToggle(document) {
+  async function handleVisibility(
+    document
+  ) {
     setError("");
     setSuccess("");
 
@@ -163,428 +202,404 @@ function AdminVisaDocumentsPage() {
       );
 
       setSuccess(
-        document.is_visible
-          ? "Visa document is now hidden from the applicant."
-          : "Visa document is now visible to the applicant."
+        `Document ${
+          !document.is_visible
+            ? "made visible"
+            : "hidden"
+        } successfully.`
       );
 
       await loadDocuments();
-    } catch (requestError) {
+    } catch (visibilityError) {
       console.error(
-        "Unable to update visa document visibility:",
-        requestError
+        "Unable to change document visibility:",
+        visibilityError
       );
 
       setError(
-        requestError?.message ||
-          "Document visibility could not be updated."
+        visibilityError?.message ||
+          "Document visibility could not be changed."
+      );
+    }
+  }
+
+  async function handleOpenDocument(
+    document
+  ) {
+    setError("");
+
+    try {
+      const signedUrl =
+        await getAdminVisaDocumentSignedUrl(
+          document.storage_path
+        );
+
+      window.open(
+        signedUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (openError) {
+      console.error(
+        "Unable to open visa document:",
+        openError
+      );
+
+      setError(
+        openError?.message ||
+          "The document could not be opened."
       );
     }
   }
 
   async function handleDelete(document) {
-    const confirmed = window.confirm(
-      `Delete "${document.title || document.file_name || "this document"}"? This action cannot be undone.`
-    );
+    const confirmed =
+      window.confirm(
+        `Delete "${document.title}"? This will remove the stored file and its database record.`
+      );
 
     if (!confirmed) return;
 
-    setDeletingId(document.id);
     setError("");
     setSuccess("");
 
     try {
-      await deleteAdminVisaDocument(document.id);
+      await deleteAdminVisaDocument(
+        document.id
+      );
 
-      if (editingId === document.id) {
-        cancelEdit();
-      }
-
-      setSuccess("Visa document deleted successfully.");
+      setSuccess(
+        "Visa document deleted successfully."
+      );
 
       await loadDocuments();
-    } catch (requestError) {
+    } catch (deleteError) {
       console.error(
         "Unable to delete visa document:",
-        requestError
+        deleteError
       );
 
       setError(
-        requestError?.message ||
+        deleteError?.message ||
           "The visa document could not be deleted."
       );
-    } finally {
-      setDeletingId("");
     }
   }
 
   return (
-    <main className="admin-page">
-      <div className="admin-page-header">
-        <div>
-          <span className="eyebrow">Administration</span>
-          <h1>Visa Documents</h1>
-          <p>
-            Upload and manage documents that administrators make
-            available to applicants.
-          </p>
-        </div>
-      </div>
-
-      {error && (
-        <AlertMessage
-          type="error"
-          title="Visa Document Error"
-          message={error}
-        />
-      )}
-
-      {success && (
-        <AlertMessage
-          type="success"
-          title="Success"
-          message={success}
-        />
-      )}
-
-      <section className="admin-card">
+    <main className="section admin-page">
+      <div className="container">
         <div className="section-heading">
           <span className="eyebrow">
-            {editingId ? "Edit Document" : "Add Document"}
+            Administration
           </span>
 
-          <h2>
-            {editingId
-              ? "Edit Visa Document"
-              : "Add Visa Document"}
-          </h2>
+          <h1>Visa Documents</h1>
 
           <p>
-            This form manages the document record. Secure file
-            upload will be connected separately through private
-            storage.
+            Upload documents for individual applications
+            and control when applicants can see them.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="form-grid">
-          <div className="form-group full-width">
-            <label htmlFor="visa-document-application-id">
-              Application ID
-            </label>
+        {error && (
+          <AlertMessage
+            type="error"
+            title="Document error"
+            message={error}
+          />
+        )}
 
-            <input
-              id="visa-document-application-id"
-              name="application_id"
-              type="text"
-              value={form.application_id}
-              onChange={handleChange}
-              placeholder="Enter the application ID"
-              disabled={saving || Boolean(editingId)}
-              required
-            />
+        {success && (
+          <AlertMessage
+            type="success"
+            title="Success"
+            message={success}
+          />
+        )}
+
+        <section className="form-card">
+          <div className="section-heading">
+            <span className="eyebrow">
+              Upload Document
+            </span>
+
+            <h2>
+              Add Visa Document
+            </h2>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="visa-document-title">
-              Document Title
-            </label>
+          <form
+            onSubmit={handleSubmit}
+            className="form-grid"
+          >
+            <div className="form-group">
+              <label htmlFor="visa-document-application-id">
+                Application ID
+              </label>
 
-            <input
-              id="visa-document-title"
-              name="title"
-              type="text"
-              value={form.title}
-              onChange={handleChange}
-              placeholder="e.g. Visa Approval Letter"
-              disabled={saving}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="visa-document-file-name">
-              File Name
-            </label>
-
-            <input
-              id="visa-document-file-name"
-              name="file_name"
-              type="text"
-              value={form.file_name}
-              onChange={handleChange}
-              placeholder="e.g. approval-letter.pdf"
-              disabled={saving}
-            />
-          </div>
-
-          <div className="form-group full-width">
-            <label htmlFor="visa-document-description">
-              Description
-            </label>
-
-            <textarea
-              id="visa-document-description"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              placeholder="Describe this document for the applicant."
-              rows="4"
-              disabled={saving}
-            />
-          </div>
-
-          <div className="form-group full-width">
-            <label htmlFor="visa-document-storage-path">
-              Storage Path
-            </label>
-
-            <input
-              id="visa-document-storage-path"
-              name="storage_path"
-              type="text"
-              value={form.storage_path}
-              onChange={handleChange}
-              placeholder="Private storage path"
-              disabled={saving}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="visa-document-mime-type">
-              MIME Type
-            </label>
-
-            <input
-              id="visa-document-mime-type"
-              name="mime_type"
-              type="text"
-              value={form.mime_type}
-              onChange={handleChange}
-              placeholder="application/pdf"
-              disabled={saving}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="visa-document-file-size">
-              File Size (bytes)
-            </label>
-
-            <input
-              id="visa-document-file-size"
-              name="file_size"
-              type="number"
-              min="0"
-              value={form.file_size}
-              onChange={handleChange}
-              placeholder="0"
-              disabled={saving}
-            />
-          </div>
-
-          <div className="form-group full-width">
-            <label className="checkbox-label">
               <input
-                type="checkbox"
-                name="is_visible"
-                checked={form.is_visible}
+                id="visa-document-application-id"
+                name="application_id"
+                type="text"
+                value={form.application_id}
                 onChange={handleChange}
+                placeholder="Enter application UUID"
+                disabled={saving}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="visa-document-title">
+                Document Title
+              </label>
+
+              <input
+                id="visa-document-title"
+                name="title"
+                type="text"
+                value={form.title}
+                onChange={handleChange}
+                placeholder="e.g. Visa Approval Letter"
+                disabled={saving}
+                required
+              />
+            </div>
+
+            <div className="form-group full-width">
+              <label htmlFor="visa-document-description">
+                Description
+              </label>
+
+              <textarea
+                id="visa-document-description"
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                placeholder="Optional document description"
+                rows="4"
                 disabled={saving}
               />
-              <span>
-                Make this document visible to the applicant
-              </span>
-            </label>
-          </div>
+            </div>
 
-          <div className="form-actions full-width">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving}
-            >
-              {saving
-                ? "Saving..."
-                : editingId
-                ? "Update Visa Document"
-                : "Add Visa Document"}
-            </button>
+            <div className="form-group full-width">
+              <label htmlFor="visa-document-file">
+                Document File
+              </label>
 
-            {editingId && (
+              <input
+                id="visa-document-file"
+                type="file"
+                onChange={handleFileChange}
+                disabled={saving}
+                required
+              />
+
+              {file && (
+                <small>
+                  Selected: {file.name} (
+                  {formatFileSize(file.size)})
+                </small>
+              )}
+
+              <small>
+                Maximum file size: 10 MB.
+              </small>
+            </div>
+
+            <div className="form-group checkbox-group">
+              <label htmlFor="visa-document-visible">
+                <input
+                  id="visa-document-visible"
+                  name="is_visible"
+                  type="checkbox"
+                  checked={form.is_visible}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+
+                Make document visible to applicant
+              </label>
+            </div>
+
+            <div className="form-actions full-width">
               <button
-                type="button"
-                className="btn btn-outline"
-                onClick={cancelEdit}
+                type="submit"
+                className="btn btn-primary"
                 disabled={saving}
               >
-                Cancel
+                {saving
+                  ? "Uploading..."
+                  : "Upload Document"}
               </button>
-            )}
 
-            {!editingId && (
               <button
                 type="button"
                 className="btn btn-outline"
-                onClick={startCreate}
+                onClick={resetForm}
                 disabled={saving}
               >
                 Clear
               </button>
-            )}
+            </div>
+          </form>
+        </section>
+
+        <section className="card admin-table-section">
+          <div className="section-heading">
+            <span className="eyebrow">
+              Stored Documents
+            </span>
+
+            <h2>
+              Visa Documents
+            </h2>
           </div>
-        </form>
-      </section>
 
-      <section className="admin-card">
-        <div className="section-heading">
-          <span className="eyebrow">Managed Documents</span>
-          <h2>Visa Documents</h2>
-          <p>
-            Review documents associated with applicant
-            applications.
-          </p>
-        </div>
+          {loading ? (
+            <Loading message="Loading visa documents..." />
+          ) : documents.length === 0 ? (
+            <div className="empty-state">
+              <h3>
+                No visa documents found
+              </h3>
 
-        {loading ? (
-          <Loading message="Loading visa documents..." />
-        ) : documents.length === 0 ? (
-          <div className="empty-state">
-            <h2>No Visa Documents</h2>
-            <p>
-              No administrator visa documents have been added
-              yet.
-            </p>
-          </div>
-        ) : (
-          <div className="admin-table-wrapper">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Document</th>
-                  <th>Applicant</th>
-                  <th>Application Number</th>
-                  <th>Visibility</th>
-                  <th>Size</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+              <p>
+                Uploaded visa documents will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Document</th>
+                    <th>Applicant</th>
+                    <th>Application Number</th>
+                    <th>File</th>
+                    <th>Visibility</th>
+                    <th>Uploaded</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {documents.map((document) => {
-                  const application =
-                    document.applications;
+                <tbody>
+                  {documents.map(
+                    (document) => (
+                      <tr key={document.id}>
+                        <td>
+                          <strong>
+                            {document.title}
+                          </strong>
 
-                  return (
-                    <tr key={document.id}>
-                      <td>
-                        <strong>
-                          {document.title ||
-                            document.file_name ||
-                            "Unnamed document"}
-                        </strong>
+                          {document.description && (
+                            <div className="admin-muted-text">
+                              {
+                                document.description
+                              }
+                            </div>
+                          )}
+                        </td>
 
-                        {document.file_name && (
-                          <div className="table-secondary-text">
-                            {document.file_name}
-                          </div>
-                        )}
-                      </td>
+                        <td>
+                          {document.applications
+                            ? `${document.applications.full_name || ""} ${
+                                document.applications.surname || ""
+                              }`.trim() ||
+                              "—"
+                            : "—"}
+                        </td>
 
-                      <td>
-                        {application
-                          ? `${application.full_name || ""} ${
-                              application.surname || ""
-                            }`.trim()
-                          : "—"}
-                      </td>
+                        <td>
+                          {document.applications
+                            ?.application_number ||
+                            "—"}
+                        </td>
 
-                      <td>
-                        {application?.application_number ||
-                          "Not Assigned"}
-                      </td>
+                        <td>
+                          {document.file_name ||
+                            "—"}
 
-                      <td>
-                        <span
-                          className={
-                            document.is_visible
-                              ? "status-badge status-approved"
-                              : "status-badge status-closed"
-                          }
-                        >
-                          {document.is_visible
-                            ? "Visible"
-                            : "Hidden"}
-                        </span>
-                      </td>
+                          {document.file_size && (
+                            <div className="admin-muted-text">
+                              {formatFileSize(
+                                document.file_size
+                              )}
+                            </div>
+                          )}
+                        </td>
 
-                      <td>
-                        {document.file_size
-                          ? formatFileSize(
-                              document.file_size
-                            )
-                          : "—"}
-                      </td>
-
-                      <td>
-                        {document.created_at
-                          ? formatDateTime(
-                              document.created_at
-                            )
-                          : "—"}
-                      </td>
-
-                      <td>
-                        <div className="table-actions">
-                          <button
-                            type="button"
-                            className="btn btn-small btn-outline"
-                            onClick={() =>
-                              startEdit(document)
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn btn-small btn-outline"
-                            onClick={() =>
-                              handleVisibilityToggle(
-                                document
-                              )
-                            }
+                        <td>
+                          <span
+                            className={`status-badge ${
+                              document.is_visible
+                                ? "status-approved"
+                                : "status-closed"
+                            }`}
                           >
                             {document.is_visible
-                              ? "Hide"
-                              : "Show"}
-                          </button>
+                              ? "Visible"
+                              : "Hidden"}
+                          </span>
+                        </td>
 
-                          <button
-                            type="button"
-                            className="btn btn-small btn-danger"
-                            onClick={() =>
-                              handleDelete(document)
-                            }
-                            disabled={
-                              deletingId === document.id
-                            }
-                          >
-                            {deletingId === document.id
-                              ? "Deleting..."
-                              : "Delete"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+                        <td>
+                          {formatDateTime(
+                            document.created_at
+                          )}
+                        </td>
+
+                        <td>
+                          <div className="admin-table-actions">
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              onClick={() =>
+                                handleOpenDocument(
+                                  document
+                                )
+                              }
+                            >
+                              Open
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              onClick={() =>
+                                handleVisibility(
+                                  document
+                                )
+                              }
+                            >
+                              {document.is_visible
+                                ? "Hide"
+                                : "Show"}
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-danger"
+                              onClick={() =>
+                                handleDelete(
+                                  document
+                                )
+                              }
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
