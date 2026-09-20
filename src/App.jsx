@@ -22,6 +22,7 @@ import AdminVisaManagementPage from "./pages/admin/AdminVisaManagementPage";
 import AdminApplicantDocumentsPage from "./pages/admin/AdminApplicantDocumentsPage";
 import AdminVisaDocumentsPage from "./pages/admin/AdminVisaDocumentsPage";
 import AdminMessagesPage from "./pages/admin/AdminMessagesPage";
+import AdminWebsiteSettingsPage from "./pages/admin/AdminWebsiteSettingsPage";
 
 function NotFound() {
   return (
@@ -89,6 +90,11 @@ function App() {
             <Route
               path="messages"
               element={<AdminMessagesPage />}
+            />
+
+            <Route
+              path="website-settings"
+              element={<AdminWebsiteSettingsPage />}
             />
           </Route>
         </Route>
