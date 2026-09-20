@@ -24,6 +24,7 @@ import AdminVisaDocumentsPage from "./pages/admin/AdminVisaDocumentsPage";
 import AdminMessagesPage from "./pages/admin/AdminMessagesPage";
 import AdminWebsiteSettingsPage from "./pages/admin/AdminWebsiteSettingsPage";
 import AdminEmailSettingsPage from "./pages/admin/AdminEmailSettingsPage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 
 function NotFound() {
   return (
@@ -101,6 +102,11 @@ function App() {
             <Route
               path="email-settings"
               element={<AdminEmailSettingsPage />}
+            />
+
+            <Route
+              path="admin-settings"
+              element={<AdminSettingsPage />}
             />
           </Route>
         </Route>
