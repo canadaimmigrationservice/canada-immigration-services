@@ -5,13 +5,16 @@ import ErrorMessage from "../components/ErrorMessage";
 import AlertMessage from "../components/AlertMessage";
 import ApplicationForm from "../components/ApplicationForm";
 import { getVisibleVisaServices } from "../services/visaService";
+import { createApplication } from "../services/applicationService";
+import { saveApplicantDocument } from "../services/documentService";
 
 function ApplyPage() {
   const [visaServices, setVisaServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedApplication, setSubmittedApplication] =
+    useState(null);
 
   useEffect(() => {
     async function loadServices() {
@@ -20,6 +23,7 @@ function ApplyPage() {
         setVisaServices(services);
       } catch (error) {
         console.error(error);
+
         setSubmitError(
           "We could not load the available services. Please try again later."
         );
@@ -33,30 +37,27 @@ function ApplyPage() {
 
   async function handleSubmit({ formData, documents }) {
     setSubmitError("");
-    setSubmitted(false);
+    setSubmittedApplication(null);
     setSubmitting(true);
 
     try {
-      /*
-       * The application will be submitted through a secure
-       * server-side endpoint after the Supabase security layer
-       * and Edge Function are completed.
-       *
-       * Do not send applicant information directly to the
-       * public applications table from the browser.
-       */
+      const application = await createApplication(formData);
 
-      console.log("Application ready for secure submission:", {
-        formData,
-        documents
-      });
+      if (documents.length > 0) {
+        for (const file of documents) {
+          await saveApplicantDocument(application.id, {
+            file
+          });
+        }
+      }
 
-      setSubmitted(true);
+      setSubmittedApplication(application);
     } catch (error) {
       console.error(error);
 
       setSubmitError(
-        "Your application could not be submitted. Please try again."
+        error?.message ||
+          "Your application could not be submitted. Please try again."
       );
     } finally {
       setSubmitting(false);
@@ -82,11 +83,15 @@ function ApplyPage() {
           <ErrorMessage message={submitError} />
         )}
 
-        {submitted && (
+        {submittedApplication && (
           <AlertMessage
             type="success"
             title="Application Received"
-            message="Your application information has been received. An Application Number will be assigned by the administration."
+            message={
+              submittedApplication.application_number
+                ? `Your application has been received. Your Application Number is ${submittedApplication.application_number}.`
+                : "Your application has been received. An Application Number will be assigned by the administration."
+            }
           />
         )}
 
