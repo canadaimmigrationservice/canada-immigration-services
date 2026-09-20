@@ -5,18 +5,22 @@ export async function getApplicantMessages(applicationId) {
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("application_messages")
-    .select(
-      "id, application_id, message, is_visible_to_applicant, created_at, updated_at"
-    )
-    .eq("application_id", applicationId)
-    .eq("is_visible_to_applicant", true)
-    .order("created_at", { ascending: true });
+  const { data, error } = await supabase.functions.invoke(
+    "get-application-messages",
+    {
+      body: {
+        application_id: applicationId
+      }
+    }
+  );
 
   if (error) {
     throw error;
   }
 
-  return data || [];
+  if (!data?.success) {
+    return [];
+  }
+
+  return data.messages || [];
 }
