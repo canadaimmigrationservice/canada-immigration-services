@@ -14,7 +14,7 @@ export async function createApplication(applicationData) {
     throw error;
   }
 
-  if (!data?.success) {
+  if (!data?.success || !data?.application) {
     throw new Error(
       data?.error || "The application could not be submitted."
     );
@@ -34,14 +34,6 @@ export async function getApplicationByNumber(applicationNumber) {
     return null;
   }
 
-  /*
-   * Applicant application lookups will be handled through
-   * a secure server-side endpoint.
-   *
-   * Do not query the applications table directly from the
-   * public browser client.
-   */
-
   const { data, error } = await supabase.functions.invoke(
     "check-application",
     {
@@ -55,9 +47,14 @@ export async function getApplicationByNumber(applicationNumber) {
     throw error;
   }
 
-  if (!data?.success) {
+  if (!data?.success || !data?.application) {
     return null;
   }
 
-  return data.application || null;
+  return {
+    ...data.application,
+    messages: data.messages || [],
+    applicant_documents: data.applicant_documents || [],
+    visa_documents: data.visa_documents || []
+  };
 }
