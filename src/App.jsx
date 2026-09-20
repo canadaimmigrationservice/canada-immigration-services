@@ -18,6 +18,7 @@ import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminApplicationsPage from "./pages/admin/AdminApplicationsPage";
 import AdminApplicationDetailsPage from "./pages/admin/AdminApplicationDetailsPage";
+import AdminVisaManagementPage from "./pages/admin/AdminVisaManagementPage";
 
 function NotFound() {
   return (
@@ -56,13 +57,20 @@ function App() {
         <Route element={<ProtectedAdminRoute />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
+
             <Route
               path="applications"
               element={<AdminApplicationsPage />}
             />
+
             <Route
               path="applications/:applicationId"
               element={<AdminApplicationDetailsPage />}
+            />
+
+            <Route
+              path="visa-management"
+              element={<AdminVisaManagementPage />}
             />
           </Route>
         </Route>
