@@ -5,18 +5,22 @@ export async function getVisibleVisaDocuments(applicationId) {
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("visa_documents")
-    .select(
-      "id, application_id, title, description, storage_path, file_name, file_type, file_size, is_visible_to_applicant, created_at, updated_at"
-    )
-    .eq("application_id", applicationId)
-    .eq("is_visible_to_applicant", true)
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.functions.invoke(
+    "get-visa-documents",
+    {
+      body: {
+        application_id: applicationId
+      }
+    }
+  );
 
   if (error) {
     throw error;
   }
 
-  return data || [];
+  if (!data?.success) {
+    return [];
+  }
+
+  return data.documents || [];
 }
