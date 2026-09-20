@@ -1,80 +1,7 @@
-import { NavLink, Route, Routes } from "react-router-dom";
-
-function Header() {
-  const navItems = [
-    { label: "Home", path: "/" },
-    { label: "About", path: "/about" },
-    { label: "Visa Services", path: "/visa-services" },
-    { label: "Apply for Visa", path: "/apply" },
-    { label: "Check Your Application", path: "/check-application" },
-    { label: "Contact", path: "/contact" }
-  ];
-
-  return (
-    <header className="site-header">
-      <div className="container header-inner">
-        <NavLink to="/" className="site-logo">
-          Canada Immigration Services
-        </NavLink>
-
-        <nav className="main-nav" aria-label="Main navigation">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                isActive ? "nav-link active" : "nav-link"
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-      </div>
-    </header>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="site-footer">
-      <div className="container footer-inner">
-        <div>
-          <strong>Canada Immigration Services</strong>
-          <p>
-            Immigration and visa application services.
-          </p>
-        </div>
-
-        <div className="footer-links">
-          <NavLink to="/about">About</NavLink>
-          <NavLink to="/visa-services">Visa Services</NavLink>
-          <NavLink to="/contact">Contact</NavLink>
-        </div>
-      </div>
-
-      <div className="container footer-bottom">
-        <p>
-          © {new Date().getFullYear()} Canada Immigration Services. All rights
-          reserved.
-        </p>
-      </div>
-    </footer>
-  );
-}
-
-function PagePlaceholder({ title, description }) {
-  return (
-    <main className="section">
-      <div className="container">
-        <div className="section-heading">
-          <h1>{title}</h1>
-          <p>{description}</p>
-        </div>
-      </div>
-    </main>
-  );
-}
+import { Route, Routes } from "react-router-dom";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import PagePlaceholder from "./components/PagePlaceholder";
 
 function Home() {
   return (
@@ -94,13 +21,16 @@ function Home() {
             </p>
 
             <div className="hero-actions">
-              <NavLink to="/apply" className="btn btn-primary">
+              <a href="/apply" className="btn btn-primary">
                 Apply for Visa
-              </NavLink>
+              </a>
 
-              <NavLink to="/check-application" className="btn btn-outline">
+              <a
+                href="/check-application"
+                className="btn btn-outline"
+              >
                 Check Your Application
-              </NavLink>
+              </a>
             </div>
           </div>
         </div>
@@ -196,9 +126,9 @@ function Home() {
             </p>
           </div>
 
-          <NavLink to="/apply" className="btn btn-primary">
+          <a href="/apply" className="btn btn-primary">
             Apply for Visa
-          </NavLink>
+          </a>
         </div>
       </section>
     </main>
