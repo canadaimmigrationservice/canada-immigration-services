@@ -8,27 +8,33 @@ export async function saveApplicantDocument(
     throw new Error("Application ID is required.");
   }
 
-  if (!document?.storagePath) {
-    throw new Error("Document storage path is required.");
+  if (!document?.file) {
+    throw new Error("Document file is required.");
   }
 
-  const { data, error } = await supabase
-    .from("applicant_documents")
-    .insert({
-      application_id: applicationId,
-      file_name: document.fileName,
-      storage_path: document.storagePath,
-      file_type: document.fileType || null,
-      file_size: document.fileSize || null
-    })
-    .select()
-    .single();
+  const formData = new FormData();
+
+  formData.append("application_id", applicationId);
+  formData.append("file", document.file);
+
+  const { data, error } = await supabase.functions.invoke(
+    "upload-applicant-document",
+    {
+      body: formData
+    }
+  );
 
   if (error) {
     throw error;
   }
 
-  return data;
+  if (!data?.success) {
+    throw new Error(
+      data?.error || "The document could not be uploaded."
+    );
+  }
+
+  return data.document;
 }
 
 export async function getApplicantDocuments(applicationId) {
@@ -36,17 +42,22 @@ export async function getApplicantDocuments(applicationId) {
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("applicant_documents")
-    .select(
-      "id, application_id, file_name, storage_path, file_type, file_size, uploaded_at"
-    )
-    .eq("application_id", applicationId)
-    .order("uploaded_at", { ascending: true });
+  const { data, error } = await supabase.functions.invoke(
+    "get-applicant-documents",
+    {
+      body: {
+        application_id: applicationId
+      }
+    }
+  );
 
   if (error) {
     throw error;
   }
 
-  return data || [];
+  if (!data?.success) {
+    return [];
+  }
+
+  return data.documents || [];
 }
