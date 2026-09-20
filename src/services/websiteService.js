@@ -1,32 +1,68 @@
 import { supabase } from "../lib/supabase";
 
-export async function getWebsiteContent(settingKey) {
-  if (!settingKey) {
+export async function getPublicWebsiteSettings() {
+  const { data, error } = await supabase
+    .from("website_settings")
+    .select("key, value, description")
+    .order("key", { ascending: true });
+
+  if (error) {
+    throw new Error(
+      error.message ||
+        "Website settings could not be loaded."
+    );
+  }
+
+  return data || [];
+}
+
+export async function getPublicWebsiteSetting(
+  key
+) {
+  if (!key?.trim()) {
     return null;
   }
 
   const { data, error } = await supabase
     .from("website_settings")
-    .select("setting_key, setting_value")
-    .eq("setting_key", settingKey)
+    .select("key, value, description")
+    .eq("key", key.trim())
     .maybeSingle();
 
   if (error) {
-    throw error;
+    throw new Error(
+      error.message ||
+        "The website setting could not be loaded."
+    );
   }
 
-  return data?.setting_value ?? null;
+  return data;
 }
 
-export async function getAllWebsiteContent() {
-  const { data, error } = await supabase
-    .from("website_settings")
-    .select("setting_key, setting_value")
-    .order("setting_key", { ascending: true });
+export function settingsToObject(
+  settings = []
+) {
+  return settings.reduce(
+    (result, setting) => {
+      result[setting.key] = setting.value;
+      return result;
+    },
+    {}
+  );
+}
 
-  if (error) {
-    throw error;
+export function getSettingValue(
+  settings,
+  key,
+  fallback = null
+) {
+  if (!Array.isArray(settings)) {
+    return fallback;
   }
 
-  return data || [];
+  const setting = settings.find(
+    (item) => item.key === key
+  );
+
+  return setting?.value ?? fallback;
 }
