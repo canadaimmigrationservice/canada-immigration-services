@@ -5,26 +5,14 @@ import {
   settingsToObject
 } from "../services/websiteService";
 
-const DEFAULT_CONTENT = {
+const DEFAULT_SETTINGS = {
   site_name: "Canada Immigration Services",
-  logo_url: ""
+  site_logo: ""
 };
-
-const navigation = [
-  { label: "Home", path: "/" },
-  { label: "About", path: "/about" },
-  { label: "Visa Services", path: "/visa-services" },
-  { label: "Apply for Visa", path: "/apply" },
-  {
-    label: "Check Your Application",
-    path: "/check-application"
-  },
-  { label: "Contact", path: "/contact" }
-];
 
 function Header() {
   const [settings, setSettings] =
-    useState(DEFAULT_CONTENT);
+    useState(DEFAULT_SETTINGS);
 
   const [menuOpen, setMenuOpen] =
     useState(false);
@@ -40,7 +28,7 @@ function Header() {
         if (!mounted) return;
 
         setSettings({
-          ...DEFAULT_CONTENT,
+          ...DEFAULT_SETTINGS,
           ...settingsToObject(
             websiteSettings
           )
@@ -64,6 +52,34 @@ function Header() {
     setMenuOpen(false);
   }
 
+  const navItems = [
+    {
+      to: "/",
+      label: "Home",
+      end: true
+    },
+    {
+      to: "/about",
+      label: "About"
+    },
+    {
+      to: "/visa-services",
+      label: "Visa Services"
+    },
+    {
+      to: "/apply",
+      label: "Apply for Visa"
+    },
+    {
+      to: "/check-application",
+      label: "Check Your Application"
+    },
+    {
+      to: "/contact",
+      label: "Contact"
+    }
+  ];
+
   return (
     <header className="site-header">
       <div className="container header-inner">
@@ -71,34 +87,33 @@ function Header() {
           to="/"
           className="site-brand"
           onClick={closeMenu}
-          aria-label={settings.site_name}
         >
-          {settings.logo_url ? (
+          {settings.site_logo ? (
             <img
-              src={settings.logo_url}
+              src={settings.site_logo}
               alt={settings.site_name}
               className="site-logo"
             />
-          ) : (
-            <span className="site-name">
-              {settings.site_name}
-            </span>
-          )}
+          ) : null}
+
+          <span className="site-name">
+            {settings.site_name}
+          </span>
         </Link>
 
         <button
           type="button"
-          className="mobile-menu-button"
-          onClick={() =>
-            setMenuOpen(
-              (current) => !current
-            )
-          }
-          aria-expanded={menuOpen}
+          className="mobile-menu-toggle"
           aria-label={
             menuOpen
               ? "Close navigation menu"
               : "Open navigation menu"
+          }
+          aria-expanded={menuOpen}
+          onClick={() =>
+            setMenuOpen(
+              (current) => !current
+            )
           }
         >
           <span />
@@ -107,28 +122,30 @@ function Header() {
         </button>
 
         <nav
-          className={
+          className={`site-nav ${
             menuOpen
-              ? "site-nav open"
-              : "site-nav"
-          }
+              ? "site-nav-open"
+              : ""
+          }`}
           aria-label="Main navigation"
         >
-          {navigation.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === "/"}
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                isActive
-                  ? "nav-link active"
-                  : "nav-link"
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {navItems.map(
+            (item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  isActive
+                    ? "nav-link active"
+                    : "nav-link"
+                }
+                onClick={closeMenu}
+              >
+                {item.label}
+              </NavLink>
+            )
+          )}
         </nav>
       </div>
     </header>
