@@ -30,7 +30,7 @@ const supabaseAdmin = createClient(
   }
 );
 
-function response(
+function jsonResponse(
   body: Record<string, unknown>,
   status = 200
 ) {
@@ -47,6 +47,78 @@ function response(
   );
 }
 
+function getBearerToken(
+  request: Request
+) {
+  const authorization =
+    request.headers.get(
+      "Authorization"
+    );
+
+  if (
+    !authorization?.startsWith(
+      "Bearer "
+    )
+  ) {
+    return null;
+  }
+
+  return authorization
+    .replace("Bearer ", "")
+    .trim();
+}
+
+async function verifyAdmin(
+  request: Request
+) {
+  const token =
+    getBearerToken(request);
+
+  if (!token) {
+    throw new Error(
+      "Administrator authentication is required."
+    );
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } =
+    await supabaseAdmin.auth.getUser(
+      token
+    );
+
+  if (userError || !user) {
+    throw new Error(
+      "Administrator authentication could not be verified."
+    );
+  }
+
+  const {
+    data: adminUser,
+    error: adminError
+  } =
+    await supabaseAdmin
+      .from("admin_users")
+      .select(
+        "id, role, is_active"
+      )
+      .eq("id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+  if (
+    adminError ||
+    !adminUser
+  ) {
+    throw new Error(
+      "This account is not authorized to send email notifications."
+    );
+  }
+
+  return adminUser;
+}
+
 async function getEmailSettings() {
   const { data, error } =
     await supabaseAdmin
@@ -59,6 +131,265 @@ async function getEmailSettings() {
     throw new Error(
       error.message ||
         "Email settings could not be loaded."
+    );
+  }
+
+  return data;
+}
+
+function escapeHtml(
+  value: string
+) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function createHtml(
+  subject: string,
+  message: string
+) {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>${escapeHtml(
+    subject
+  )}</title>
+</head>
+<body
+  style="
+    margin: 0;
+    padding: 0;
+    background: #f5f5f5;
+    font-family: Arial, Helvetica, sans-serif;
+  "
+>
+  <div
+    style="
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    "
+  >
+    <div
+      style="
+        background: #ffffff;
+        padding: 32px;
+        border-radius: 8px;
+      "
+    >
+      <h1
+        style="
+          margin-top: 0;
+          font-size: 24px;
+        "
+      >
+        ${escapeHtml(subject)}
+      </h1>
+
+      <div
+        style="
+          font-size: 16px;
+          line-height: 1.7;
+        "
+      >
+        ${escapeHtml(
+          message
+        ).replace(/\n/g, "<br />")}
+      </div>
+
+      <hr
+        style="
+          margin: 30px 0;
+          border: 0;
+          border-top: 1px solid #ddd;
+        "
+      />
+
+      <p
+        style="
+          margin-bottom: 0;
+          color: #666;
+          font-size: 14px;
+        "
+      >
+        Canada Immigration Services
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+}
+
+function base64UrlEncode(
+  value: string
+) {
+  const bytes =
+    new TextEncoder().encode(
+      value
+    );
+
+  let binary = "";
+
+  for (
+    const byte of bytes
+  ) {
+    binary += String.fromCharCode(
+      byte
+    );
+  }
+
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function createRawEmail({
+  from,
+  to,
+  subject,
+  message
+}: {
+  from: string;
+  to: string;
+  subject: string;
+  message: string;
+}) {
+  const html =
+    createHtml(
+      subject,
+      message
+    );
+
+  const raw = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/html; charset="UTF-8"',
+    "",
+    html
+  ].join("\r\n");
+
+  return base64UrlEncode(
+    raw
+  );
+}
+
+async function refreshAccessToken(
+  refreshToken: string
+) {
+  const clientId =
+    Deno.env.get(
+      "GOOGLE_CLIENT_ID"
+    );
+
+  const clientSecret =
+    Deno.env.get(
+      "GOOGLE_CLIENT_SECRET"
+    );
+
+  if (
+    !clientId ||
+    !clientSecret
+  ) {
+    throw new Error(
+      "Google OAuth credentials are not configured."
+    );
+  }
+
+  const response =
+    await fetch(
+      "https://oauth2.googleapis.com/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/x-www-form-urlencoded"
+        },
+        body:
+          new URLSearchParams({
+            client_id: clientId,
+            client_secret:
+              clientSecret,
+            refresh_token:
+              refreshToken,
+            grant_type:
+              "refresh_token"
+          })
+      }
+    );
+
+  const data =
+    await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error_description ||
+        data?.error ||
+        "Google access token refresh failed."
+    );
+  }
+
+  return data.access_token;
+}
+
+async function sendGmailMessage({
+  accessToken,
+  from,
+  to,
+  subject,
+  message
+}: {
+  accessToken: string;
+  from: string;
+  to: string;
+  subject: string;
+  message: string;
+}) {
+  const raw =
+    createRawEmail({
+      from,
+      to,
+      subject,
+      message
+    });
+
+  const response =
+    await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      {
+        method: "POST",
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`,
+          "Content-Type":
+            "application/json"
+        },
+        body: JSON.stringify({
+          raw
+        })
+      }
+    );
+
+  const data =
+    await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error?.message ||
+        "Gmail could not send the message."
     );
   }
 
@@ -85,100 +416,9 @@ async function logEmail({
       subject,
       event_type: eventType,
       status,
-      error_message: errorMessage
+      error_message:
+        errorMessage
     });
-}
-
-function buildHtml(
-  title: string,
-  message: string
-) {
-  const safeTitle = title
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-
-  const safeMessage = message
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br />");
-
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>${safeTitle}</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
-        <div style="max-width: 640px; margin: 0 auto; padding: 24px;">
-          <h1>${safeTitle}</h1>
-          <p>${safeMessage}</p>
-          <p>
-            Canada Immigration Services
-          </p>
-        </div>
-      </body>
-    </html>
-  `;
-}
-
-async function sendWithResend(
-  settings: Record<string, unknown>,
-  recipient: string,
-  subject: string,
-  message: string
-) {
-  const apiKey =
-    Deno.env.get("RESEND_API_KEY");
-
-  if (!apiKey) {
-    throw new Error(
-      "Email provider credentials are not configured."
-    );
-  }
-
-  const fromEmail =
-    String(
-      settings.from_email ||
-        settings.admin_email ||
-        "onboarding@resend.dev"
-    );
-
-  const result = await fetch(
-    "https://api.resend.com/emails",
-    {
-      method: "POST",
-      headers: {
-        Authorization:
-          `Bearer ${apiKey}`,
-        "Content-Type":
-          "application/json"
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [recipient],
-        subject,
-        html: buildHtml(
-          subject,
-          message
-        )
-      })
-    }
-  );
-
-  if (!result.ok) {
-    const errorText =
-      await result.text();
-
-    throw new Error(
-      errorText ||
-        "The email provider rejected the message."
-    );
-  }
-
-  return await result.json();
 }
 
 Deno.serve(
@@ -200,7 +440,7 @@ Deno.serve(
       request.method !==
       "POST"
     ) {
-      return response(
+      return jsonResponse(
         {
           success: false,
           error:
@@ -211,6 +451,10 @@ Deno.serve(
     }
 
     try {
+      await verifyAdmin(
+        request
+      );
+
       const body =
         await request.json();
 
@@ -265,7 +509,7 @@ Deno.serve(
       if (
         settings.is_enabled === false
       ) {
-        return response({
+        return jsonResponse({
           success: true,
           skipped: true,
           message:
@@ -273,14 +517,43 @@ Deno.serve(
         });
       }
 
+      const refreshToken =
+        Deno.env.get(
+          "GMAIL_REFRESH_TOKEN"
+        );
+
+      if (!refreshToken) {
+        throw new Error(
+          "Gmail OAuth connection has not been configured."
+        );
+      }
+
+      const accessToken =
+        await refreshAccessToken(
+          refreshToken
+        );
+
+      const fromEmail =
+        String(
+          settings.admin_email ||
+            ""
+        ).trim();
+
+      if (!fromEmail) {
+        throw new Error(
+          "The administrator Gmail address has not been configured."
+        );
+      }
+
       try {
         const result =
-          await sendWithResend(
-            settings,
-            recipient,
+          await sendGmailMessage({
+            accessToken,
+            from: fromEmail,
+            to: recipient,
             subject,
             message
-          );
+          });
 
         await logEmail({
           recipient,
@@ -289,7 +562,7 @@ Deno.serve(
           status: "sent"
         });
 
-        return response({
+        return jsonResponse({
           success: true,
           message_id:
             result?.id || null
@@ -302,7 +575,7 @@ Deno.serve(
           status: "failed",
           errorMessage:
             sendError?.message ||
-            "Email delivery failed."
+            "Gmail delivery failed."
         });
 
         throw sendError;
@@ -313,7 +586,7 @@ Deno.serve(
         error
       );
 
-      return response(
+      return jsonResponse(
         {
           success: false,
           error:
