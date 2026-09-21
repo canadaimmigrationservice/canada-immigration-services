@@ -1,93 +1,193 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Loading from "../components/Loading";
-import ErrorMessage from "../components/ErrorMessage";
-import { getWebsiteContent } from "../services/websiteService";
+import AlertMessage from "../components/AlertMessage";
+import {
+  getPublicWebsiteSettings,
+  settingsToObject
+} from "../services/websiteService";
 
-const defaultContact = {
-  title: "Contact Canada Immigration Services",
-  description:
-    "Use the contact information below to get in touch with Canada Immigration Services.",
-  email: "",
-  phone: "",
-  address: "",
-  hours: ""
+const DEFAULT_CONTENT = {
+  contact_title:
+    "Contact Canada Immigration Services",
+  contact_description:
+    "If you have questions about our immigration and visa application services, please contact us using the information below.",
+  contact_email:
+    "info@example.com",
+  contact_phone:
+    "",
+  contact_address:
+    "",
+  contact_whatsapp:
+    ""
 };
 
 function ContactPage() {
-  const [contact, setContact] = useState(defaultContact);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [settings, setSettings] =
+    useState(DEFAULT_CONTENT);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
 
   useEffect(() => {
-    async function loadContactContent() {
-      try {
-        const content = await getWebsiteContent("contact_page");
+    let mounted = true;
 
-        if (content && typeof content === "object") {
-          setContact({
-            ...defaultContact,
-            ...content
-          });
-        }
-      } catch (requestError) {
-        console.error(requestError);
-        setError(
-          "Some contact information could not be loaded. Please try again later."
+    async function loadContent() {
+      try {
+        const websiteSettings =
+          await getPublicWebsiteSettings();
+
+        if (!mounted) return;
+
+        setSettings({
+          ...DEFAULT_CONTENT,
+          ...settingsToObject(
+            websiteSettings
+          )
+        });
+      } catch (loadError) {
+        console.error(
+          "Unable to load Contact page settings:",
+          loadError
         );
+
+        if (mounted) {
+          setError(
+            "Some contact information could not be loaded."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
-    loadContactContent();
+    loadContent();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  if (loading) {
+    return (
+      <main className="section">
+        <div className="container">
+          <Loading message="Loading contact information..." />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="section">
       <div className="container">
-        {loading ? (
-          <Loading message="Loading contact information..." />
-        ) : (
-          <>
-            {error && <ErrorMessage message={error} />}
-
-            <div className="section-heading">
-              <span className="eyebrow">Contact</span>
-              <h1>{contact.title}</h1>
-              <p>{contact.description}</p>
-            </div>
-
-            <div className="card-grid">
-              {contact.email && (
-                <article className="card">
-                  <h2>Email</h2>
-                  <p>{contact.email}</p>
-                </article>
-              )}
-
-              {contact.phone && (
-                <article className="card">
-                  <h2>Phone</h2>
-                  <p>{contact.phone}</p>
-                </article>
-              )}
-
-              {contact.address && (
-                <article className="card">
-                  <h2>Address</h2>
-                  <p>{contact.address}</p>
-                </article>
-              )}
-
-              {contact.hours && (
-                <article className="card">
-                  <h2>Office Hours</h2>
-                  <p>{contact.hours}</p>
-                </article>
-              )}
-            </div>
-          </>
+        {error && (
+          <AlertMessage
+            type="error"
+            title="Contact information"
+            message={error}
+          />
         )}
+
+        <div className="section-heading">
+          <span className="eyebrow">
+            Contact
+          </span>
+
+          <h1>
+            {settings.contact_title}
+          </h1>
+
+          <p>
+            {settings.contact_description}
+          </p>
+        </div>
+
+        <div className="card-grid">
+          <article className="card">
+            <h2>Email</h2>
+
+            {settings.contact_email ? (
+              <p>
+                <a
+                  href={`mailto:${settings.contact_email}`}
+                >
+                  {settings.contact_email}
+                </a>
+              </p>
+            ) : (
+              <p>
+                Email contact information is not
+                currently available.
+              </p>
+            )}
+          </article>
+
+          <article className="card">
+            <h2>Phone</h2>
+
+            {settings.contact_phone ? (
+              <p>
+                <a
+                  href={`tel:${settings.contact_phone}`}
+                >
+                  {settings.contact_phone}
+                </a>
+              </p>
+            ) : (
+              <p>
+                Phone contact information is not
+                currently available.
+              </p>
+            )}
+          </article>
+
+          <article className="card">
+            <h2>Address</h2>
+
+            <p>
+              {settings.contact_address ||
+                "Address information is not currently available."}
+            </p>
+          </article>
+
+          <article className="card">
+            <h2>WhatsApp</h2>
+
+            {settings.contact_whatsapp ? (
+              <p>
+                <a
+                  href={
+                    settings.contact_whatsapp
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Contact us on WhatsApp
+                </a>
+              </p>
+            ) : (
+              <p>
+                WhatsApp contact information is not
+                currently available.
+              </p>
+            )}
+          </article>
+        </div>
+
+        <div className="form-actions">
+          <Link
+            to="/apply"
+            className="btn btn-primary"
+          >
+            Apply for Visa
+          </Link>
+        </div>
       </div>
     </main>
   );
