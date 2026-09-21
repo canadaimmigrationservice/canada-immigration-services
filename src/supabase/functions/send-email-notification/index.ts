@@ -68,7 +68,7 @@ function getBearerToken(
     .trim();
 }
 
-async function verifyAdmin(
+async function verifyRequest(
   request: Request
 ) {
   const token =
@@ -76,8 +76,15 @@ async function verifyAdmin(
 
   if (!token) {
     throw new Error(
-      "Administrator authentication is required."
+      "Authentication is required."
     );
+  }
+
+  if (token === serviceRoleKey) {
+    return {
+      type: "service",
+      role: "service_role"
+    };
   }
 
   const {
@@ -90,7 +97,7 @@ async function verifyAdmin(
 
   if (userError || !user) {
     throw new Error(
-      "Administrator authentication could not be verified."
+      "Authentication could not be verified."
     );
   }
 
@@ -116,7 +123,11 @@ async function verifyAdmin(
     );
   }
 
-  return adminUser;
+  return {
+    type: "admin",
+    role: adminUser.role,
+    userId: user.id
+  };
 }
 
 async function getEmailSettings() {
@@ -320,7 +331,8 @@ async function refreshAccessToken(
         },
         body:
           new URLSearchParams({
-            client_id: clientId,
+            client_id:
+              clientId,
             client_secret:
               clientSecret,
             refresh_token:
@@ -409,16 +421,25 @@ async function logEmail({
   status: string;
   errorMessage?: string | null;
 }) {
-  await supabaseAdmin
-    .from("email_logs")
-    .insert({
-      recipient,
-      subject,
-      event_type: eventType,
-      status,
-      error_message:
-        errorMessage
-    });
+  const { error } =
+    await supabaseAdmin
+      .from("email_logs")
+      .insert({
+        recipient,
+        subject,
+        event_type:
+          eventType,
+        status,
+        error_message:
+          errorMessage
+      });
+
+  if (error) {
+    console.error(
+      "Email log could not be saved:",
+      error
+    );
+  }
 }
 
 Deno.serve(
@@ -451,7 +472,7 @@ Deno.serve(
     }
 
     try {
-      await verifyAdmin(
+      await verifyRequest(
         request
       );
 
@@ -549,8 +570,10 @@ Deno.serve(
         const result =
           await sendGmailMessage({
             accessToken,
-            from: fromEmail,
-            to: recipient,
+            from:
+              fromEmail,
+            to:
+              recipient,
             subject,
             message
           });
@@ -565,14 +588,18 @@ Deno.serve(
         return jsonResponse({
           success: true,
           message_id:
-            result?.id || null
+            result?.id ||
+            null
         });
-      } catch (sendError) {
+      } catch (
+        sendError
+      ) {
         await logEmail({
           recipient,
           subject,
           eventType,
-          status: "failed",
+          status:
+            "failed",
           errorMessage:
             sendError?.message ||
             "Gmail delivery failed."
