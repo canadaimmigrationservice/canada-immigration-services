@@ -7,11 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
-const supabaseUrl =
-  Deno.env.get("SUPABASE_URL");
-
-const serviceRoleKey =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error(
@@ -40,26 +37,17 @@ function jsonResponse(
       status,
       headers: {
         ...corsHeaders,
-        "Content-Type":
-          "application/json"
+        "Content-Type": "application/json"
       }
     }
   );
 }
 
-function getBearerToken(
-  request: Request
-) {
+function getBearerToken(request: Request) {
   const authorization =
-    request.headers.get(
-      "Authorization"
-    );
+    request.headers.get("Authorization");
 
-  if (
-    !authorization?.startsWith(
-      "Bearer "
-    )
-  ) {
+  if (!authorization?.startsWith("Bearer ")) {
     return null;
   }
 
@@ -68,11 +56,8 @@ function getBearerToken(
     .trim();
 }
 
-async function verifyRequest(
-  request: Request
-) {
-  const token =
-    getBearerToken(request);
+async function verifyRequest(request: Request) {
+  const token = getBearerToken(request);
 
   if (!token) {
     throw new Error(
@@ -90,10 +75,7 @@ async function verifyRequest(
   const {
     data: { user },
     error: userError
-  } =
-    await supabaseAdmin.auth.getUser(
-      token
-    );
+  } = await supabaseAdmin.auth.getUser(token);
 
   if (userError || !user) {
     throw new Error(
@@ -104,20 +86,14 @@ async function verifyRequest(
   const {
     data: adminUser,
     error: adminError
-  } =
-    await supabaseAdmin
-      .from("admin_users")
-      .select(
-        "id, role, is_active"
-      )
-      .eq("id", user.id)
-      .eq("is_active", true)
-      .maybeSingle();
+  } = await supabaseAdmin
+    .from("admin_users")
+    .select("id, role, is_active")
+    .eq("id", user.id)
+    .eq("is_active", true)
+    .maybeSingle();
 
-  if (
-    adminError ||
-    !adminUser
-  ) {
+  if (adminError || !adminUser) {
     throw new Error(
       "This account is not authorized to send email notifications."
     );
@@ -131,12 +107,11 @@ async function verifyRequest(
 }
 
 async function getEmailSettings() {
-  const { data, error } =
-    await supabaseAdmin
-      .from("email_settings")
-      .select("*")
-      .limit(1)
-      .maybeSingle();
+  const { data, error } = await supabaseAdmin
+    .from("email_settings")
+    .select("*")
+    .limit(1)
+    .maybeSingle();
 
   if (error) {
     throw new Error(
@@ -148,9 +123,7 @@ async function getEmailSettings() {
   return data;
 }
 
-function escapeHtml(
-  value: string
-) {
+function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -172,9 +145,7 @@ function createHtml(
     name="viewport"
     content="width=device-width, initial-scale=1.0"
   />
-  <title>${escapeHtml(
-    subject
-  )}</title>
+  <title>${escapeHtml(subject)}</title>
 </head>
 <body
   style="
@@ -213,9 +184,10 @@ function createHtml(
           line-height: 1.7;
         "
       >
-        ${escapeHtml(
-          message
-        ).replace(/\n/g, "<br />")}
+        ${escapeHtml(message).replace(
+          /\n/g,
+          "<br />"
+        )}
       </div>
 
       <hr
@@ -242,22 +214,14 @@ function createHtml(
 `;
 }
 
-function base64UrlEncode(
-  value: string
-) {
+function base64UrlEncode(value: string) {
   const bytes =
-    new TextEncoder().encode(
-      value
-    );
+    new TextEncoder().encode(value);
 
   let binary = "";
 
-  for (
-    const byte of bytes
-  ) {
-    binary += String.fromCharCode(
-      byte
-    );
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
   }
 
   return btoa(binary)
@@ -277,11 +241,10 @@ function createRawEmail({
   subject: string;
   message: string;
 }) {
-  const html =
-    createHtml(
-      subject,
-      message
-    );
+  const html = createHtml(
+    subject,
+    message
+  );
 
   const raw = [
     `From: ${from}`,
@@ -293,9 +256,7 @@ function createRawEmail({
     html
   ].join("\r\n");
 
-  return base64UrlEncode(
-    raw
-  );
+  return base64UrlEncode(raw);
 }
 
 async function refreshAccessToken(
@@ -311,40 +272,30 @@ async function refreshAccessToken(
       "GOOGLE_CLIENT_SECRET"
     );
 
-  if (
-    !clientId ||
-    !clientSecret
-  ) {
+  if (!clientId || !clientSecret) {
     throw new Error(
       "Google OAuth credentials are not configured."
     );
   }
 
-  const response =
-    await fetch(
-      "https://oauth2.googleapis.com/token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/x-www-form-urlencoded"
-        },
-        body:
-          new URLSearchParams({
-            client_id:
-              clientId,
-            client_secret:
-              clientSecret,
-            refresh_token:
-              refreshToken,
-            grant_type:
-              "refresh_token"
-          })
-      }
-    );
+  const response = await fetch(
+    "https://oauth2.googleapis.com/token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token"
+      })
+    }
+  );
 
-  const data =
-    await response.json();
+  const data = await response.json();
 
   if (!response.ok) {
     throw new Error(
@@ -370,33 +321,30 @@ async function sendGmailMessage({
   subject: string;
   message: string;
 }) {
-  const raw =
-    createRawEmail({
-      from,
-      to,
-      subject,
-      message
-    });
+  const raw = createRawEmail({
+    from,
+    to,
+    subject,
+    message
+  });
 
-  const response =
-    await fetch(
-      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-      {
-        method: "POST",
-        headers: {
-          Authorization:
-            `Bearer ${accessToken}`,
-          "Content-Type":
-            "application/json"
-        },
-        body: JSON.stringify({
-          raw
-        })
-      }
-    );
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "POST",
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
+        "Content-Type":
+          "application/json"
+      },
+      body: JSON.stringify({
+        raw
+      })
+    }
+  );
 
-  const data =
-    await response.json();
+  const data = await response.json();
 
   if (!response.ok) {
     throw new Error(
@@ -425,10 +373,12 @@ async function logEmail({
     await supabaseAdmin
       .from("email_logs")
       .insert({
-        recipient,
-        subject,
-        event_type:
-          eventType,
+        recipient_email: recipient,
+        email_type: eventType,
+        sent_at:
+          status === "sent"
+            ? new Date().toISOString()
+            : null,
         status,
         error_message:
           errorMessage
@@ -442,186 +392,166 @@ async function logEmail({
   }
 }
 
-Deno.serve(
-  async (request) => {
-    if (
-      request.method ===
-      "OPTIONS"
-    ) {
-      return new Response(
-        "ok",
-        {
-          headers:
-            corsHeaders
-        }
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") {
+    return new Response("ok", {
+      headers: corsHeaders
+    });
+  }
+
+  if (request.method !== "POST") {
+    return jsonResponse(
+      {
+        success: false,
+        error:
+          "Only POST requests are allowed."
+      },
+      405
+    );
+  }
+
+  try {
+    await verifyRequest(request);
+
+    const body = await request.json();
+
+    const recipient =
+      String(
+        body.recipient || ""
+      ).trim();
+
+    const subject =
+      String(
+        body.subject || ""
+      ).trim();
+
+    const message =
+      String(
+        body.message || ""
+      ).trim();
+
+    const eventType =
+      String(
+        body.event_type ||
+          "general"
+      ).trim();
+
+    if (!recipient) {
+      throw new Error(
+        "Recipient email is required."
+      );
+    }
+
+    if (!subject) {
+      throw new Error(
+        "Email subject is required."
+      );
+    }
+
+    if (!message) {
+      throw new Error(
+        "Email message is required."
+      );
+    }
+
+    const settings =
+      await getEmailSettings();
+
+    if (!settings) {
+      throw new Error(
+        "Email settings have not been configured."
       );
     }
 
     if (
-      request.method !==
-      "POST"
+      settings.notifications_enabled ===
+      false
     ) {
-      return jsonResponse(
-        {
-          success: false,
-          error:
-            "Only POST requests are allowed."
-        },
-        405
+      return jsonResponse({
+        success: true,
+        skipped: true,
+        message:
+          "Email notifications are disabled."
+      });
+    }
+
+    const refreshToken =
+      Deno.env.get(
+        "GMAIL_REFRESH_TOKEN"
+      );
+
+    if (!refreshToken) {
+      throw new Error(
+        "Gmail OAuth connection has not been configured."
+      );
+    }
+
+    const accessToken =
+      await refreshAccessToken(
+        refreshToken
+      );
+
+    const fromEmail =
+      String(
+        settings.admin_email ||
+          ""
+      ).trim();
+
+    if (!fromEmail) {
+      throw new Error(
+        "The administrator Gmail address has not been configured."
       );
     }
 
     try {
-      await verifyRequest(
-        request
-      );
-
-      const body =
-        await request.json();
-
-      const recipient =
-        String(
-          body.recipient || ""
-        ).trim();
-
-      const subject =
-        String(
-          body.subject || ""
-        ).trim();
-
-      const message =
-        String(
-          body.message || ""
-        ).trim();
-
-      const eventType =
-        String(
-          body.event_type ||
-            "general"
-        ).trim();
-
-      if (!recipient) {
-        throw new Error(
-          "Recipient email is required."
-        );
-      }
-
-      if (!subject) {
-        throw new Error(
-          "Email subject is required."
-        );
-      }
-
-      if (!message) {
-        throw new Error(
-          "Email message is required."
-        );
-      }
-
-      const settings =
-        await getEmailSettings();
-
-      if (!settings) {
-        throw new Error(
-          "Email settings have not been configured."
-        );
-      }
-
-      if (
-        settings.is_enabled === false
-      ) {
-        return jsonResponse({
-          success: true,
-          skipped: true,
-          message:
-            "Email notifications are disabled."
-        });
-      }
-
-      const refreshToken =
-        Deno.env.get(
-          "GMAIL_REFRESH_TOKEN"
-        );
-
-      if (!refreshToken) {
-        throw new Error(
-          "Gmail OAuth connection has not been configured."
-        );
-      }
-
-      const accessToken =
-        await refreshAccessToken(
-          refreshToken
-        );
-
-      const fromEmail =
-        String(
-          settings.admin_email ||
-            ""
-        ).trim();
-
-      if (!fromEmail) {
-        throw new Error(
-          "The administrator Gmail address has not been configured."
-        );
-      }
-
-      try {
-        const result =
-          await sendGmailMessage({
-            accessToken,
-            from:
-              fromEmail,
-            to:
-              recipient,
-            subject,
-            message
-          });
-
-        await logEmail({
-          recipient,
+      const result =
+        await sendGmailMessage({
+          accessToken,
+          from: fromEmail,
+          to: recipient,
           subject,
-          eventType,
-          status: "sent"
+          message
         });
 
-        return jsonResponse({
-          success: true,
-          message_id:
-            result?.id ||
-            null
-        });
-      } catch (
-        sendError
-      ) {
-        await logEmail({
-          recipient,
-          subject,
-          eventType,
-          status:
-            "failed",
-          errorMessage:
-            sendError?.message ||
-            "Gmail delivery failed."
-        });
+      await logEmail({
+        recipient,
+        subject,
+        eventType,
+        status: "sent"
+      });
 
-        throw sendError;
-      }
-    } catch (error) {
-      console.error(
-        "Email notification failed:",
-        error
-      );
+      return jsonResponse({
+        success: true,
+        message_id:
+          result?.id || null
+      });
+    } catch (sendError) {
+      await logEmail({
+        recipient,
+        subject,
+        eventType,
+        status: "failed",
+        errorMessage:
+          sendError?.message ||
+          "Gmail delivery failed."
+      });
 
-      return jsonResponse(
-        {
-          success: false,
-          error:
-            error?.message ||
-            "The email notification could not be sent."
-        },
-        400
-      );
+      throw sendError;
     }
+  } catch (error) {
+    console.error(
+      "Email notification failed:",
+      error
+    );
+
+    return jsonResponse(
+      {
+        success: false,
+        error:
+          error?.message ||
+          "The email notification could not be sent."
+      },
+      400
+    );
   }
-);
+});
