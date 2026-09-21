@@ -1,6 +1,9 @@
 import { supabase } from "../lib/supabase";
+import { sendEmailNotification } from "./emailNotificationService";
 
-export async function getAdminVisaDocuments(filters = {}) {
+export async function getAdminVisaDocuments(
+  filters = {}
+) {
   let query = supabase
     .from("visa_documents")
     .select(`
@@ -13,7 +16,9 @@ export async function getAdminVisaDocuments(filters = {}) {
         email
       )
     `)
-    .order("created_at", { ascending: false });
+    .order("created_at", {
+      ascending: false
+    });
 
   if (filters.applicationId) {
     query = query.eq(
@@ -32,7 +37,8 @@ export async function getAdminVisaDocuments(filters = {}) {
     );
   }
 
-  const { data, error } = await query;
+  const { data, error } =
+    await query;
 
   if (error) {
     throw new Error(
@@ -44,7 +50,9 @@ export async function getAdminVisaDocuments(filters = {}) {
   return data || [];
 }
 
-async function runAdminDocumentAction(body) {
+async function runAdminDocumentAction(
+  body
+) {
   const { data, error } =
     await supabase.functions.invoke(
       "admin-document-action",
@@ -70,45 +78,124 @@ async function runAdminDocumentAction(body) {
   return data;
 }
 
+async function notifyVisaDocumentAvailable(
+  applicationId,
+  document
+) {
+  if (
+    !applicationId ||
+    !document?.is_visible
+  ) {
+    return;
+  }
+
+  try {
+    const { data: application } =
+      await supabase
+        .from("applications")
+        .select(
+          "id, application_number, full_name, email"
+        )
+        .eq(
+          "id",
+          applicationId
+        )
+        .maybeSingle();
+
+    if (!application?.email) {
+      return;
+    }
+
+    await sendEmailNotification({
+      recipient:
+        application.email,
+      subject:
+        "A Visa Document Is Available",
+      message:
+        `Dear ${
+          application.full_name ||
+          "Applicant"
+        },\n\n` +
+        `A new visa document is now available for your application.\n\n` +
+        `Document: ${
+          document.title
+        }\n\n` +
+        `${
+          document.description ||
+          "Please log in to check your application and view the available document."
+        }\n\n` +
+        `Application Number: ${
+          application.application_number ||
+          "Not yet assigned"
+        }\n\n` +
+        `Canada Immigration Services`,
+      eventType:
+        "visa_document_available"
+    });
+  } catch (error) {
+    console.error(
+      "Visa document email notification failed:",
+      error
+    );
+  }
+}
+
 export async function createVisaDocument(
   documentData
 ) {
   if (!documentData?.application_id) {
-    throw new Error("Application ID is required.");
+    throw new Error(
+      "Application ID is required."
+    );
   }
 
   if (!documentData?.title?.trim()) {
-    throw new Error("Document title is required.");
+    throw new Error(
+      "Document title is required."
+    );
   }
 
   if (!documentData?.storage_path?.trim()) {
-    throw new Error("Document storage path is required.");
+    throw new Error(
+      "Document storage path is required."
+    );
   }
 
-  const { data, error } = await supabase
-    .from("visa_documents")
-    .insert({
-      application_id: documentData.application_id,
-      title: documentData.title.trim(),
-      description:
-        documentData.description?.trim() || null,
-      file_name:
-        documentData.file_name?.trim() || null,
-      storage_path:
-        documentData.storage_path.trim(),
-      mime_type:
-        documentData.mime_type?.trim() || null,
-      file_size:
-        Number.isFinite(
-          Number(documentData.file_size)
-        )
-          ? Number(documentData.file_size)
-          : null,
-      is_visible:
-        documentData.is_visible !== false
-    })
-    .select("*")
-    .single();
+  const { data, error } =
+    await supabase
+      .from("visa_documents")
+      .insert({
+        application_id:
+          documentData.application_id,
+        title:
+          documentData.title.trim(),
+        description:
+          documentData.description?.trim() ||
+          null,
+        file_name:
+          documentData.file_name?.trim() ||
+          null,
+        storage_path:
+          documentData.storage_path.trim(),
+        mime_type:
+          documentData.mime_type?.trim() ||
+          null,
+        file_size:
+          Number.isFinite(
+            Number(
+              documentData.file_size
+            )
+          )
+            ? Number(
+                documentData.file_size
+              )
+            : null,
+        is_visible:
+          documentData.is_visible !==
+          false
+      })
+      .select("*")
+      .single();
 
   if (error) {
     throw new Error(
@@ -116,6 +203,11 @@ export async function createVisaDocument(
         "The visa document record could not be created."
     );
   }
+
+  await notifyVisaDocumentAvailable(
+    documentData.application_id,
+    data
+  );
 
   return data;
 }
@@ -125,11 +217,18 @@ export async function updateVisaDocument(
   updates
 ) {
   if (!documentId) {
-    throw new Error("Document ID is required.");
+    throw new Error(
+      "Document ID is required."
+    );
   }
 
-  if (!updates || typeof updates !== "object") {
-    throw new Error("Document updates are required.");
+  if (
+    !updates ||
+    typeof updates !== "object"
+  ) {
+    throw new Error(
+      "Document updates are required."
+    );
   }
 
   const allowedFields = [
@@ -144,18 +243,24 @@ export async function updateVisaDocument(
 
   const cleanUpdates = {};
 
-  for (const field of allowedFields) {
+  for (
+    const field of allowedFields
+  ) {
     if (
       Object.prototype.hasOwnProperty.call(
         updates,
         field
       )
     ) {
-      cleanUpdates[field] = updates[field];
+      cleanUpdates[field] =
+        updates[field];
     }
   }
 
-  if (Object.keys(cleanUpdates).length === 0) {
+  if (
+    Object.keys(cleanUpdates).length ===
+    0
+  ) {
     throw new Error(
       "No document changes were provided."
     );
@@ -167,7 +272,9 @@ export async function updateVisaDocument(
       "title"
     )
   ) {
-    if (!cleanUpdates.title?.trim()) {
+    if (
+      !cleanUpdates.title?.trim()
+    ) {
       throw new Error(
         "Document title is required."
       );
@@ -205,7 +312,9 @@ export async function updateVisaDocument(
       "storage_path"
     )
   ) {
-    if (!cleanUpdates.storage_path?.trim()) {
+    if (
+      !cleanUpdates.storage_path?.trim()
+    ) {
       throw new Error(
         "Document storage path is required."
       );
@@ -215,17 +324,38 @@ export async function updateVisaDocument(
       cleanUpdates.storage_path.trim();
   }
 
-  const { data, error } = await supabase
-    .from("visa_documents")
-    .update(cleanUpdates)
-    .eq("id", documentId)
-    .select("*")
-    .single();
+  const { data: existingDocument } =
+    await supabase
+      .from("visa_documents")
+      .select(
+        "id, application_id, is_visible"
+      )
+      .eq("id", documentId)
+      .maybeSingle();
+
+  const { data, error } =
+    await supabase
+      .from("visa_documents")
+      .update(cleanUpdates)
+      .eq("id", documentId)
+      .select("*")
+      .single();
 
   if (error) {
     throw new Error(
       error.message ||
         "The visa document could not be updated."
+    );
+  }
+
+  const becameVisible =
+    !existingDocument?.is_visible &&
+    data.is_visible;
+
+  if (becameVisible) {
+    await notifyVisaDocumentAvailable(
+      data.application_id,
+      data
     );
   }
 
@@ -237,22 +367,47 @@ export async function setVisaDocumentVisibility(
   isVisible
 ) {
   if (!documentId) {
-    throw new Error("Document ID is required.");
+    throw new Error(
+      "Document ID is required."
+    );
   }
 
-  const { data, error } = await supabase
+  const {
+    data: existingDocument
+  } = await supabase
     .from("visa_documents")
-    .update({
-      is_visible: Boolean(isVisible)
-    })
+    .select(
+      "id, application_id, is_visible"
+    )
     .eq("id", documentId)
-    .select("*")
-    .single();
+    .maybeSingle();
+
+  const { data, error } =
+    await supabase
+      .from("visa_documents")
+      .update({
+        is_visible:
+          Boolean(isVisible)
+      })
+      .eq("id", documentId)
+      .select("*")
+      .single();
 
   if (error) {
     throw new Error(
       error.message ||
         "Document visibility could not be updated."
+    );
+  }
+
+  const becameVisible =
+    !existingDocument?.is_visible &&
+    data.is_visible;
+
+  if (becameVisible) {
+    await notifyVisaDocumentAvailable(
+      data.application_id,
+      data
     );
   }
 
@@ -263,7 +418,9 @@ export async function deleteAdminVisaDocument(
   documentId
 ) {
   if (!documentId) {
-    throw new Error("Document ID is required.");
+    throw new Error(
+      "Document ID is required."
+    );
   }
 
   const {
@@ -271,7 +428,9 @@ export async function deleteAdminVisaDocument(
     error: fetchError
   } = await supabase
     .from("visa_documents")
-    .select("id, storage_path")
+    .select(
+      "id, storage_path"
+    )
     .eq("id", documentId)
     .maybeSingle();
 
@@ -291,20 +450,23 @@ export async function deleteAdminVisaDocument(
   if (document.storage_path) {
     await runAdminDocumentAction({
       action: "delete",
-      bucket: "visa-documents",
-      storage_path: document.storage_path
+      bucket:
+        "visa-documents",
+      storage_path:
+        document.storage_path
     });
   }
 
-  const { error } = await supabase
-    .from("visa_documents")
-    .delete()
-    .eq("id", documentId);
+  const { error } =
+    await supabase
+      .from("visa_documents")
+      .delete()
+      .eq("id", documentId);
 
   if (error) {
     throw new Error(
       error.message ||
-        "The visa document record could not be deleted."
+        "The visa document could not be deleted."
     );
   }
 }
@@ -313,14 +475,18 @@ export async function getAdminVisaDocumentSignedUrl(
   storagePath
 ) {
   if (!storagePath?.trim()) {
-    throw new Error("Storage path is required.");
+    throw new Error(
+      "Storage path is required."
+    );
   }
 
   const result =
     await runAdminDocumentAction({
       action: "signed-url",
-      bucket: "visa-documents",
-      storage_path: storagePath.trim(),
+      bucket:
+        "visa-documents",
+      storage_path:
+        storagePath.trim(),
       expires_in: 300
     });
 
@@ -350,7 +516,8 @@ export async function uploadAdminVisaDocument({
     );
   }
 
-  const formData = new FormData();
+  const formData =
+    new FormData();
 
   formData.append(
     "action",
