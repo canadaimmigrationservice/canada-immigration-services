@@ -325,7 +325,7 @@ export async function updateApplicationDecision(
         recipient:
           application.email,
         subject:
-          `Application Decision Update`,
+          "Application Decision Update",
         message:
           `Dear ${application.full_name || "Applicant"},\n\n` +
           `There has been an update to the decision on your application.\n\n` +
@@ -385,7 +385,7 @@ export async function updatePassportInstructions(
     ) ||
     Object.prototype.hasOwnProperty.call(
       updates,
-      "passport_submission_instructions"
+      "passport_instructions"
     );
 
   if (
@@ -402,7 +402,7 @@ export async function updatePassportInstructions(
           `Dear ${application.full_name || "Applicant"},\n\n` +
           `Passport submission information for your application has been updated.\n\n` +
           `${
-            application.passport_submission_instructions ||
+            application.passport_instructions ||
             "Please check your application for the latest passport submission instructions."
           }\n\n` +
           `Application Number: ${
