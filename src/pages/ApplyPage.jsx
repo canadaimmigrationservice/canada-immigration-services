@@ -7,53 +7,115 @@ import ApplicationForm from "../components/ApplicationForm";
 import { getVisibleVisaServices } from "../services/visaService";
 import { createApplication } from "../services/applicationService";
 import { saveApplicantDocument } from "../services/documentService";
+import {
+  getPublicWebsiteSettings,
+  settingsToObject
+} from "../services/websiteService";
+
+const DEFAULT_CONTENT = {
+  apply_title: "Submit Your Application",
+  apply_description:
+    "Complete the application form with the requested information and supporting documents. Submission of an application does not constitute approval."
+};
 
 function ApplyPage() {
-  const [visaServices, setVisaServices] = useState([]);
-  const [loadingServices, setLoadingServices] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
+  const [visaServices, setVisaServices] =
+    useState([]);
+
+  const [settings, setSettings] =
+    useState(DEFAULT_CONTENT);
+
+  const [loadingServices, setLoadingServices] =
+    useState(true);
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [submitError, setSubmitError] =
+    useState("");
+
   const [submittedApplication, setSubmittedApplication] =
     useState(null);
 
   useEffect(() => {
-    async function loadServices() {
-      try {
-        const services = await getVisibleVisaServices();
-        setVisaServices(services);
-      } catch (error) {
-        console.error(error);
+    let mounted = true;
 
-        setSubmitError(
-          "We could not load the available services. Please try again later."
+    async function loadContent() {
+      try {
+        const [
+          websiteSettings,
+          services
+        ] = await Promise.all([
+          getPublicWebsiteSettings(),
+          getVisibleVisaServices()
+        ]);
+
+        if (!mounted) return;
+
+        setSettings({
+          ...DEFAULT_CONTENT,
+          ...settingsToObject(
+            websiteSettings
+          )
+        });
+
+        setVisaServices(services);
+      } catch (loadError) {
+        console.error(
+          "Unable to load application page:",
+          loadError
         );
+
+        if (mounted) {
+          setSubmitError(
+            "We could not load the application options. Please try again later."
+          );
+        }
       } finally {
-        setLoadingServices(false);
+        if (mounted) {
+          setLoadingServices(false);
+        }
       }
     }
 
-    loadServices();
+    loadContent();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  async function handleSubmit({ formData, documents }) {
+  async function handleSubmit({
+    formData,
+    documents
+  }) {
     setSubmitError("");
     setSubmittedApplication(null);
     setSubmitting(true);
 
     try {
-      const application = await createApplication(formData);
+      const application =
+        await createApplication(
+          formData
+        );
 
       if (documents.length > 0) {
         for (const file of documents) {
-          await saveApplicantDocument(application.id, {
-            file
-          });
+          await saveApplicantDocument(
+            application.id,
+            { file }
+          );
         }
       }
 
-      setSubmittedApplication(application);
+      setSubmittedApplication(
+        application
+      );
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Application submission failed:",
+        error
+      );
 
       setSubmitError(
         error?.message ||
@@ -68,19 +130,23 @@ function ApplyPage() {
     <main className="section">
       <div className="container">
         <div className="section-heading">
-          <span className="eyebrow">Apply for Visa</span>
+          <span className="eyebrow">
+            Apply for Visa
+          </span>
 
-          <h1>Submit Your Application</h1>
+          <h1>
+            {settings.apply_title}
+          </h1>
 
           <p>
-            Complete the application form with the requested
-            information and supporting documents. Submission of an
-            application does not constitute approval.
+            {settings.apply_description}
           </p>
         </div>
 
         {submitError && (
-          <ErrorMessage message={submitError} />
+          <ErrorMessage
+            message={submitError}
+          />
         )}
 
         {submittedApplication && (
