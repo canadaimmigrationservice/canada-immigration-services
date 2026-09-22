@@ -32,7 +32,7 @@ export async function getAdminVisaDocuments(
     filters.visible !== ""
   ) {
     query = query.eq(
-      "is_visible",
+      "is_visible_to_applicant",
       filters.visible === true
     );
   }
@@ -84,7 +84,7 @@ async function notifyVisaDocumentAvailable(
 ) {
   if (
     !applicationId ||
-    !document?.is_visible
+    !document?.is_visible_to_applicant
   ) {
     return;
   }
@@ -120,17 +120,14 @@ async function notifyVisaDocumentAvailable(
         `Document: ${
           document.title
         }\n\n` +
-        `${
-          document.description ||
-          "Please log in to check your application and view the available document."
-        }\n\n` +
         `Application Number: ${
           application.application_number ||
           "Not yet assigned"
         }\n\n` +
+        `Please check your application for the available document.\n\n` +
         `Canada Immigration Services`,
       eventType:
-        "visa_document_available"
+        "applicant_visa_document_available"
     });
   } catch (error) {
     console.error(
@@ -155,6 +152,12 @@ export async function createVisaDocument(
     );
   }
 
+  if (!documentData?.file_name?.trim()) {
+    throw new Error(
+      "Document file name is required."
+    );
+  }
+
   if (!documentData?.storage_path?.trim()) {
     throw new Error(
       "Document storage path is required."
@@ -169,29 +172,12 @@ export async function createVisaDocument(
           documentData.application_id,
         title:
           documentData.title.trim(),
-        description:
-          documentData.description?.trim() ||
-          null,
         file_name:
-          documentData.file_name?.trim() ||
-          null,
+          documentData.file_name.trim(),
         storage_path:
           documentData.storage_path.trim(),
-        mime_type:
-          documentData.mime_type?.trim() ||
-          null,
-        file_size:
-          Number.isFinite(
-            Number(
-              documentData.file_size
-            )
-          )
-            ? Number(
-                documentData.file_size
-              )
-            : null,
-        is_visible:
-          documentData.is_visible !==
+        is_visible_to_applicant:
+          documentData.is_visible_to_applicant !==
           false
       })
       .select("*")
@@ -233,12 +219,9 @@ export async function updateVisaDocument(
 
   const allowedFields = [
     "title",
-    "description",
     "file_name",
     "storage_path",
-    "mime_type",
-    "file_size",
-    "is_visible"
+    "is_visible_to_applicant"
   ];
 
   const cleanUpdates = {};
@@ -287,23 +270,19 @@ export async function updateVisaDocument(
   if (
     Object.prototype.hasOwnProperty.call(
       cleanUpdates,
-      "description"
-    )
-  ) {
-    cleanUpdates.description =
-      cleanUpdates.description?.trim() ||
-      null;
-  }
-
-  if (
-    Object.prototype.hasOwnProperty.call(
-      cleanUpdates,
       "file_name"
     )
   ) {
+    if (
+      !cleanUpdates.file_name?.trim()
+    ) {
+      throw new Error(
+        "Document file name is required."
+      );
+    }
+
     cleanUpdates.file_name =
-      cleanUpdates.file_name?.trim() ||
-      null;
+      cleanUpdates.file_name.trim();
   }
 
   if (
@@ -324,14 +303,29 @@ export async function updateVisaDocument(
       cleanUpdates.storage_path.trim();
   }
 
-  const { data: existingDocument } =
-    await supabase
-      .from("visa_documents")
-      .select(
-        "id, application_id, is_visible"
-      )
-      .eq("id", documentId)
-      .maybeSingle();
+  const {
+    data: existingDocument,
+    error: existingError
+  } = await supabase
+    .from("visa_documents")
+    .select(
+      "id, application_id, is_visible_to_applicant"
+    )
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(
+      existingError.message ||
+        "The existing visa document could not be loaded."
+    );
+  }
+
+  if (!existingDocument) {
+    throw new Error(
+      "Visa document could not be found."
+    );
+  }
 
   const { data, error } =
     await supabase
@@ -349,8 +343,8 @@ export async function updateVisaDocument(
   }
 
   const becameVisible =
-    !existingDocument?.is_visible &&
-    data.is_visible;
+    !existingDocument.is_visible_to_applicant &&
+    data.is_visible_to_applicant;
 
   if (becameVisible) {
     await notifyVisaDocumentAvailable(
@@ -373,20 +367,34 @@ export async function setVisaDocumentVisibility(
   }
 
   const {
-    data: existingDocument
+    data: existingDocument,
+    error: existingError
   } = await supabase
     .from("visa_documents")
     .select(
-      "id, application_id, is_visible"
+      "id, application_id, is_visible_to_applicant"
     )
     .eq("id", documentId)
     .maybeSingle();
+
+  if (existingError) {
+    throw new Error(
+      existingError.message ||
+        "The existing visa document could not be loaded."
+    );
+  }
+
+  if (!existingDocument) {
+    throw new Error(
+      "Visa document could not be found."
+    );
+  }
 
   const { data, error } =
     await supabase
       .from("visa_documents")
       .update({
-        is_visible:
+        is_visible_to_applicant:
           Boolean(isVisible)
       })
       .eq("id", documentId)
@@ -401,8 +409,8 @@ export async function setVisaDocumentVisibility(
   }
 
   const becameVisible =
-    !existingDocument?.is_visible &&
-    data.is_visible;
+    !existingDocument.is_visible_to_applicant &&
+    data.is_visible_to_applicant;
 
   if (becameVisible) {
     await notifyVisaDocumentAvailable(
