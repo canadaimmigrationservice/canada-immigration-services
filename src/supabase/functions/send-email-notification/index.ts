@@ -8,7 +8,9 @@ const corsHeaders = {
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const serviceRoleKey = Deno.env.get(
+  "SUPABASE_SERVICE_ROLE_KEY"
+);
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error(
@@ -107,11 +109,12 @@ async function verifyRequest(request: Request) {
 }
 
 async function getEmailSettings() {
-  const { data, error } = await supabaseAdmin
-    .from("email_settings")
-    .select("*")
-    .limit(1)
-    .maybeSingle();
+  const { data, error } =
+    await supabaseAdmin
+      .from("email_settings")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
 
   if (error) {
     throw new Error(
@@ -121,6 +124,66 @@ async function getEmailSettings() {
   }
 
   return data;
+}
+
+/*
+ * Maps each email event to the corresponding
+ * boolean field in email_settings.
+ */
+const EVENT_SETTING_MAP: Record<
+  string,
+  string
+> = {
+  application_submitted:
+    "applicant_application_submitted",
+
+  application_number_assigned:
+    "applicant_application_number_assigned",
+
+  processing_status_changed:
+    "applicant_status_changed",
+
+  document_requested:
+    "applicant_document_requested",
+
+  document_received:
+    "applicant_document_received",
+
+  applicant_message_received:
+    "applicant_message_received",
+
+  decision_updated:
+    "applicant_decision_updated",
+
+  passport_instructions_updated:
+    "applicant_passport_instructions",
+
+  applicant_visa_document_available:
+    "applicant_visa_document_available",
+
+  admin_application_submitted:
+    "admin_new_application",
+
+  admin_applicant_document_uploaded:
+    "admin_applicant_document_uploaded"
+};
+
+function isEventEnabled(
+  settings: Record<string, unknown>,
+  eventType: string
+) {
+  const settingField =
+    EVENT_SETTING_MAP[eventType];
+
+  /*
+   * General/test emails are controlled only
+   * by the global notifications switch.
+   */
+  if (!settingField) {
+    return true;
+  }
+
+  return settings[settingField] !== false;
 }
 
 function escapeHtml(value: string) {
@@ -413,7 +476,8 @@ Deno.serve(async (request) => {
   try {
     await verifyRequest(request);
 
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const recipient =
       String(
@@ -472,6 +536,21 @@ Deno.serve(async (request) => {
         skipped: true,
         message:
           "Email notifications are disabled."
+      });
+    }
+
+    if (
+      !isEventEnabled(
+        settings,
+        eventType
+      )
+    ) {
+      return jsonResponse({
+        success: true,
+        skipped: true,
+        event_type: eventType,
+        message:
+          "This email notification is disabled."
       });
     }
 
