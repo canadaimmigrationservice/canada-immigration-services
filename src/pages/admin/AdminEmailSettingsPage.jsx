@@ -3,10 +3,72 @@ import AlertMessage from "../../components/AlertMessage";
 import Loading from "../../components/Loading";
 import {
   createEmailSetting,
-  deleteEmailSetting,
   getAdminEmailSettings,
   updateEmailSetting
 } from "../../services/adminEmailSettingsService";
+
+const DEFAULT_FORM = {
+  notifications_enabled: true,
+  admin_email: "",
+  applicant_application_submitted: true,
+  applicant_application_number_assigned: true,
+  applicant_status_changed: true,
+  applicant_document_requested: true,
+  applicant_document_received: true,
+  applicant_message_received: true,
+  applicant_decision_updated: true,
+  applicant_passport_instructions: true,
+  applicant_visa_document_available: true,
+  admin_new_application: true,
+  admin_applicant_document_uploaded: true
+};
+
+const NOTIFICATION_OPTIONS = [
+  {
+    key: "applicant_application_submitted",
+    label: "Applicant — Application Submitted"
+  },
+  {
+    key: "applicant_application_number_assigned",
+    label: "Applicant — Application Number Assigned"
+  },
+  {
+    key: "applicant_status_changed",
+    label: "Applicant — Application Status Changed"
+  },
+  {
+    key: "applicant_document_requested",
+    label: "Applicant — Additional Document Requested"
+  },
+  {
+    key: "applicant_document_received",
+    label: "Applicant — Document Received"
+  },
+  {
+    key: "applicant_message_received",
+    label: "Applicant — New Message"
+  },
+  {
+    key: "applicant_decision_updated",
+    label: "Applicant — Decision Updated"
+  },
+  {
+    key: "applicant_passport_instructions",
+    label: "Applicant — Passport Instructions Updated"
+  },
+  {
+    key: "applicant_visa_document_available",
+    label: "Applicant — Visa Document Available"
+  },
+  {
+    key: "admin_new_application",
+    label: "Administrator — New Application"
+  },
+  {
+    key: "admin_applicant_document_uploaded",
+    label: "Administrator — Applicant Document Uploaded"
+  }
+];
 
 function AdminEmailSettingsPage() {
   const [settings, setSettings] = useState([]);
@@ -16,12 +78,7 @@ function AdminEmailSettingsPage() {
   const [success, setSuccess] = useState("");
   const [editingId, setEditingId] = useState(null);
 
-  const [form, setForm] = useState({
-    provider: "Gmail",
-    is_enabled: true,
-    admin_email: "",
-    sender_name: "Canada Immigration Services"
-  });
+  const [form, setForm] = useState(DEFAULT_FORM);
 
   async function loadSettings() {
     setLoading(true);
@@ -29,9 +86,64 @@ function AdminEmailSettingsPage() {
 
     try {
       const data = await getAdminEmailSettings();
+
       setSettings(data);
+
+      if (data.length > 0) {
+        const existing = data[0];
+
+        setEditingId(existing.id);
+
+        setForm({
+          notifications_enabled:
+            existing.notifications_enabled !== false,
+
+          admin_email:
+            existing.admin_email || "",
+
+          applicant_application_submitted:
+            existing.applicant_application_submitted !== false,
+
+          applicant_application_number_assigned:
+            existing.applicant_application_number_assigned !== false,
+
+          applicant_status_changed:
+            existing.applicant_status_changed !== false,
+
+          applicant_document_requested:
+            existing.applicant_document_requested !== false,
+
+          applicant_document_received:
+            existing.applicant_document_received !== false,
+
+          applicant_message_received:
+            existing.applicant_message_received !== false,
+
+          applicant_decision_updated:
+            existing.applicant_decision_updated !== false,
+
+          applicant_passport_instructions:
+            existing.applicant_passport_instructions !== false,
+
+          applicant_visa_document_available:
+            existing.applicant_visa_document_available !== false,
+
+          admin_new_application:
+            existing.admin_new_application !== false,
+
+          admin_applicant_document_uploaded:
+            existing.admin_applicant_document_uploaded !== false
+        });
+      } else {
+        setEditingId(null);
+        setForm(DEFAULT_FORM);
+      }
     } catch (loadError) {
-      console.error("Unable to load email settings:", loadError);
+      console.error(
+        "Unable to load email settings:",
+        loadError
+      );
+
       setError(
         loadError?.message ||
           "Email settings could not be loaded."
@@ -45,44 +157,16 @@ function AdminEmailSettingsPage() {
     loadSettings();
   }, []);
 
-  function resetForm() {
-    setEditingId(null);
-    setForm({
-      provider: "Gmail",
-      is_enabled: true,
-      admin_email: "",
-      sender_name: "Canada Immigration Services"
-    });
-  }
-
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
 
     setForm((current) => ({
       ...current,
-      [name]: type === "checkbox" ? checked : value
+      [name]:
+        type === "checkbox"
+          ? checked
+          : value
     }));
-  }
-
-  function handleEdit(setting) {
-    setEditingId(setting.id);
-
-    setForm({
-      provider: setting.provider || "Gmail",
-      is_enabled: setting.is_enabled !== false,
-      admin_email: setting.admin_email || "",
-      sender_name:
-        setting.sender_name ||
-        "Canada Immigration Services"
-    });
-
-    setError("");
-    setSuccess("");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
   }
 
   async function handleSubmit(event) {
@@ -96,11 +180,9 @@ function AdminEmailSettingsPage() {
 
     try {
       const settingData = {
-        provider: form.provider,
-        is_enabled: form.is_enabled,
-        admin_email: form.admin_email,
-        sender_name: form.sender_name,
-        configuration: {}
+        ...form,
+        admin_email:
+          form.admin_email.trim() || null
       };
 
       if (editingId) {
@@ -113,14 +195,18 @@ function AdminEmailSettingsPage() {
           "Email settings updated successfully."
         );
       } else {
-        await createEmailSetting(settingData);
+        const created =
+          await createEmailSetting(
+            settingData
+          );
+
+        setEditingId(created.id);
 
         setSuccess(
           "Email settings created successfully."
         );
       }
 
-      resetForm();
       await loadSettings();
     } catch (saveError) {
       console.error(
@@ -137,57 +223,56 @@ function AdminEmailSettingsPage() {
     }
   }
 
-  async function handleDelete(setting) {
-    const confirmed = window.confirm(
-      `Delete the ${setting.provider} email setting?`
-    );
+  function enableAllNotifications() {
+    setForm((current) => {
+      const updated = {
+        ...current
+      };
 
-    if (!confirmed) return;
-
-    setError("");
-    setSuccess("");
-
-    try {
-      await deleteEmailSetting(setting.id);
-
-      if (editingId === setting.id) {
-        resetForm();
+      for (const option of NOTIFICATION_OPTIONS) {
+        updated[option.key] = true;
       }
 
-      setSuccess(
-        "Email settings deleted successfully."
-      );
-
-      await loadSettings();
-    } catch (deleteError) {
-      console.error(
-        "Unable to delete email settings:",
-        deleteError
-      );
-
-      setError(
-        deleteError?.message ||
-          "The email settings could not be deleted."
-      );
-    }
+      return updated;
+    });
   }
+
+  function disableAllNotifications() {
+    setForm((current) => {
+      const updated = {
+        ...current
+      };
+
+      for (const option of NOTIFICATION_OPTIONS) {
+        updated[option.key] = false;
+      }
+
+      return updated;
+    });
+  }
+
+  const savedSettings = settings[0];
 
   return (
     <main className="section admin-page">
       <div className="container">
         <div className="section-heading">
-          <span className="eyebrow">Administration</span>
+          <span className="eyebrow">
+            Administration
+          </span>
+
           <h1>Email Settings</h1>
+
           <p>
-            Configure the email provider and notification settings
-            used by the immigration services website.
+            Control email notifications for applicants
+            and administrators.
           </p>
         </div>
 
         <AlertMessage
           type="info"
           title="Secure email connection"
-          message="Gmail passwords, OAuth secrets, and other private credentials must not be stored in this frontend configuration. The secure Gmail connection will be configured separately."
+          message="Gmail authentication is handled securely through the email notification service. Gmail passwords and OAuth secrets must never be stored in this frontend configuration."
         />
 
         {error && (
@@ -206,83 +291,185 @@ function AdminEmailSettingsPage() {
           />
         )}
 
-        <section className="form-card">
-          <div className="section-heading">
-            <span className="eyebrow">
-              {editingId ? "Edit Configuration" : "Configuration"}
-            </span>
+        {loading ? (
+          <Loading message="Loading email settings..." />
+        ) : (
+          <form
+            onSubmit={handleSubmit}
+            className="form-grid"
+          >
+            <section className="form-card full-width">
+              <div className="section-heading">
+                <span className="eyebrow">
+                  General
+                </span>
 
-            <h2>
-              {editingId
-                ? "Update Email Settings"
-                : "Add Email Configuration"}
-            </h2>
-          </div>
+                <h2>
+                  Email Notification Settings
+                </h2>
 
-          <form onSubmit={handleSubmit} className="form-grid">
-            <div className="form-group">
-              <label htmlFor="email-provider">
-                Email Provider
-              </label>
+                <p>
+                  Configure the administrator email
+                  address and enable or disable email
+                  notifications.
+                </p>
+              </div>
 
-              <select
-                id="email-provider"
-                name="provider"
-                value={form.provider}
-                onChange={handleChange}
-                disabled={saving}
-                required
-              >
-                <option value="Gmail">Gmail</option>
-              </select>
-            </div>
+              <div className="form-group">
+                <label htmlFor="admin-email">
+                  Administrator Email
+                </label>
 
-            <div className="form-group">
-              <label htmlFor="admin-email">
-                Administrator Email
-              </label>
-
-              <input
-                id="admin-email"
-                name="admin_email"
-                type="email"
-                value={form.admin_email}
-                onChange={handleChange}
-                placeholder="Enter administrator email"
-                autoComplete="email"
-                disabled={saving}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="sender-name">
-                Sender Name
-              </label>
-
-              <input
-                id="sender-name"
-                name="sender_name"
-                type="text"
-                value={form.sender_name}
-                onChange={handleChange}
-                placeholder="Canada Immigration Services"
-                disabled={saving}
-              />
-            </div>
-
-            <div className="form-group checkbox-group">
-              <label htmlFor="email-enabled">
                 <input
-                  id="email-enabled"
-                  name="is_enabled"
-                  type="checkbox"
-                  checked={form.is_enabled}
+                  id="admin-email"
+                  name="admin_email"
+                  type="email"
+                  value={form.admin_email}
                   onChange={handleChange}
+                  placeholder="Enter administrator email"
+                  autoComplete="email"
                   disabled={saving}
                 />
-                Enable email notifications
-              </label>
-            </div>
+
+                <small>
+                  Administrator notifications will be
+                  sent to this email address.
+                </small>
+              </div>
+
+              <div className="form-group checkbox-group">
+                <label htmlFor="notifications-enabled">
+                  <input
+                    id="notifications-enabled"
+                    name="notifications_enabled"
+                    type="checkbox"
+                    checked={
+                      form.notifications_enabled
+                    }
+                    onChange={handleChange}
+                    disabled={saving}
+                  />
+
+                  Enable email notifications
+                </label>
+              </div>
+            </section>
+
+            <section className="form-card full-width">
+              <div className="section-heading">
+                <span className="eyebrow">
+                  Applicant Notifications
+                </span>
+
+                <h2>
+                  Applicant Email Events
+                </h2>
+
+                <p>
+                  Choose which events should send
+                  notifications to applicants.
+                </p>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={enableAllNotifications}
+                  disabled={saving}
+                >
+                  Enable All
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={disableAllNotifications}
+                  disabled={saving}
+                >
+                  Disable All
+                </button>
+              </div>
+
+              <div className="form-grid">
+                {NOTIFICATION_OPTIONS.map(
+                  (option) => (
+                    <div
+                      className="form-group checkbox-group"
+                      key={option.key}
+                    >
+                      <label
+                        htmlFor={option.key}
+                      >
+                        <input
+                          id={option.key}
+                          name={option.key}
+                          type="checkbox"
+                          checked={
+                            form[option.key]
+                          }
+                          onChange={handleChange}
+                          disabled={
+                            saving ||
+                            !form.notifications_enabled
+                          }
+                        />
+
+                        {option.label}
+                      </label>
+                    </div>
+                  )
+                )}
+              </div>
+            </section>
+
+            <section className="form-card full-width">
+              <div className="section-heading">
+                <span className="eyebrow">
+                  Current Configuration
+                </span>
+
+                <h2>
+                  Email Service
+                </h2>
+
+                <p>
+                  The website uses the secure Gmail
+                  notification service configured
+                  through the backend.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label>
+                  Email Provider
+                </label>
+
+                <input
+                  type="text"
+                  value="Gmail"
+                  disabled
+                  readOnly
+                />
+              </div>
+
+              <div className="form-group">
+                <label>
+                  Notification Status
+                </label>
+
+                <input
+                  type="text"
+                  value={
+                    form.notifications_enabled
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                  disabled
+                  readOnly
+                />
+              </div>
+            </section>
 
             <div className="form-actions full-width">
               <button
@@ -296,119 +483,110 @@ function AdminEmailSettingsPage() {
                     ? "Update Email Settings"
                     : "Save Email Settings"}
               </button>
-
-              {editingId && (
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={resetForm}
-                  disabled={saving}
-                >
-                  Cancel Edit
-                </button>
-              )}
             </div>
           </form>
-        </section>
+        )}
 
-        <section className="card admin-table-section">
-          <div className="section-heading">
-            <span className="eyebrow">Saved Configuration</span>
-            <h2>Email Providers</h2>
-          </div>
+        {!loading && savedSettings && (
+          <section className="card admin-table-section">
+            <div className="section-heading">
+              <span className="eyebrow">
+                Configuration Status
+              </span>
 
-          {loading ? (
-            <Loading message="Loading email settings..." />
-          ) : settings.length === 0 ? (
-            <div className="empty-state">
-              <h3>No email configuration found</h3>
-              <p>
-                Add an email configuration using the form above.
-              </p>
+              <h2>
+                Saved Email Settings
+              </h2>
             </div>
-          ) : (
+
             <div className="table-wrapper">
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Provider</th>
-                    <th>Administrator Email</th>
-                    <th>Sender Name</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                    <th>Actions</th>
+                    <th>
+                      Administrator Email
+                    </th>
+
+                    <th>
+                      Notifications
+                    </th>
+
+                    <th>
+                      Applicant Events
+                    </th>
+
+                    <th>
+                      Admin Events
+                    </th>
+
+                    <th>
+                      Updated
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {settings.map((setting) => (
-                    <tr key={setting.id}>
-                      <td>
-                        <strong>
-                          {setting.provider}
-                        </strong>
-                      </td>
+                  <tr>
+                    <td>
+                      {savedSettings.admin_email ||
+                        "Not configured"}
+                    </td>
 
-                      <td>
-                        {setting.admin_email || "—"}
-                      </td>
+                    <td>
+                      <span
+                        className={`status-badge ${
+                          savedSettings.notifications_enabled
+                            ? "status-approved"
+                            : "status-closed"
+                        }`}
+                      >
+                        {savedSettings.notifications_enabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </td>
 
-                      <td>
-                        {setting.sender_name || "—"}
-                      </td>
+                    <td>
+                      {
+                        NOTIFICATION_OPTIONS.filter(
+                          (option) =>
+                            option.key.startsWith(
+                              "applicant_"
+                            ) &&
+                            savedSettings[
+                              option.key
+                            ]
+                        ).length
+                      } enabled
+                    </td>
 
-                      <td>
-                        <span
-                          className={`status-badge ${
-                            setting.is_enabled
-                              ? "status-approved"
-                              : "status-closed"
-                          }`}
-                        >
-                          {setting.is_enabled
-                            ? "Enabled"
-                            : "Disabled"}
-                        </span>
-                      </td>
+                    <td>
+                      {
+                        NOTIFICATION_OPTIONS.filter(
+                          (option) =>
+                            option.key.startsWith(
+                              "admin_"
+                            ) &&
+                            savedSettings[
+                              option.key
+                            ]
+                        ).length
+                      } enabled
+                    </td>
 
-                      <td>
-                        {setting.updated_at
-                          ? new Date(
-                              setting.updated_at
-                            ).toLocaleString()
-                          : "—"}
-                      </td>
-
-                      <td>
-                        <div className="admin-table-actions">
-                          <button
-                            type="button"
-                            className="btn btn-outline"
-                            onClick={() =>
-                              handleEdit(setting)
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn btn-danger"
-                            onClick={() =>
-                              handleDelete(setting)
-                            }
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                    <td>
+                      {savedSettings.updated_at
+                        ? new Date(
+                            savedSettings.updated_at
+                          ).toLocaleString()
+                        : "—"}
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
-          )}
-        </section>
+          </section>
+        )}
       </div>
     </main>
   );
