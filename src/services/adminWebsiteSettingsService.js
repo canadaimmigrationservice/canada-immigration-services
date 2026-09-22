@@ -4,7 +4,7 @@ export async function getAdminWebsiteSettings() {
   const { data, error } = await supabase
     .from("website_settings")
     .select("*")
-    .order("key", {
+    .order("setting_key", {
       ascending: true
     });
 
@@ -21,14 +21,16 @@ export async function getAdminWebsiteSettings() {
 export async function getWebsiteSetting(
   key
 ) {
-  if (!key?.trim()) {
+  const cleanKey = key?.trim();
+
+  if (!cleanKey) {
     return null;
   }
 
   const { data, error } = await supabase
     .from("website_settings")
     .select("*")
-    .eq("key", key.trim())
+    .eq("setting_key", cleanKey)
     .maybeSingle();
 
   if (error) {
@@ -44,7 +46,9 @@ export async function getWebsiteSetting(
 export async function createWebsiteSetting(
   setting
 ) {
-  if (!setting?.key?.trim()) {
+  const cleanKey = setting?.key?.trim();
+
+  if (!cleanKey) {
     throw new Error(
       "Setting key is required."
     );
@@ -53,12 +57,9 @@ export async function createWebsiteSetting(
   const { data, error } = await supabase
     .from("website_settings")
     .insert({
-      key: setting.key.trim(),
-      value:
-        setting.value ?? "",
-      description:
-        setting.description?.trim() ||
-        null
+      setting_key: cleanKey,
+      setting_value:
+        setting.value ?? "{}"
     })
     .select("*")
     .single();
@@ -100,14 +101,17 @@ export async function updateWebsiteSetting(
       "key"
     )
   ) {
-    if (!updates.key?.trim()) {
+    const cleanKey =
+      updates.key?.trim();
+
+    if (!cleanKey) {
       throw new Error(
         "Setting key is required."
       );
     }
 
-    cleanUpdates.key =
-      updates.key.trim();
+    cleanUpdates.setting_key =
+      cleanKey;
   }
 
   if (
@@ -116,24 +120,12 @@ export async function updateWebsiteSetting(
       "value"
     )
   ) {
-    cleanUpdates.value =
-      updates.value ?? "";
+    cleanUpdates.setting_value =
+      updates.value ?? {};
   }
 
   if (
-    Object.prototype.hasOwnProperty.call(
-      updates,
-      "description"
-    )
-  ) {
-    cleanUpdates.description =
-      updates.description?.trim() ||
-      null;
-  }
-
-  if (
-    Object.keys(cleanUpdates)
-      .length === 0
+    Object.keys(cleanUpdates).length === 0
   ) {
     throw new Error(
       "No website setting changes were provided."
