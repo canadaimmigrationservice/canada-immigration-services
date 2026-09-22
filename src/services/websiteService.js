@@ -3,8 +3,8 @@ import { supabase } from "../lib/supabase";
 export async function getPublicWebsiteSettings() {
   const { data, error } = await supabase
     .from("website_settings")
-    .select("key, value, description")
-    .order("key", { ascending: true });
+    .select("setting_key, setting_value")
+    .order("setting_key", { ascending: true });
 
   if (error) {
     throw new Error(
@@ -19,14 +19,16 @@ export async function getPublicWebsiteSettings() {
 export async function getPublicWebsiteSetting(
   key
 ) {
-  if (!key?.trim()) {
+  const cleanKey = key?.trim();
+
+  if (!cleanKey) {
     return null;
   }
 
   const { data, error } = await supabase
     .from("website_settings")
-    .select("key, value, description")
-    .eq("key", key.trim())
+    .select("setting_key, setting_value")
+    .eq("setting_key", cleanKey)
     .maybeSingle();
 
   if (error) {
@@ -44,7 +46,13 @@ export function settingsToObject(
 ) {
   return settings.reduce(
     (result, setting) => {
-      result[setting.key] = setting.value;
+      if (!setting?.setting_key) {
+        return result;
+      }
+
+      result[setting.setting_key] =
+        setting.setting_value;
+
       return result;
     },
     {}
@@ -60,9 +68,18 @@ export function getSettingValue(
     return fallback;
   }
 
+  const cleanKey = key?.trim();
+
+  if (!cleanKey) {
+    return fallback;
+  }
+
   const setting = settings.find(
-    (item) => item.key === key
+    (item) =>
+      item?.setting_key === cleanKey
   );
 
-  return setting?.value ?? fallback;
+  return (
+    setting?.setting_value ?? fallback
+  );
 }
