@@ -10,184 +10,157 @@ import {
 const DEFAULT_SETTINGS = [
   {
     key: "site_name",
-    value: "Canada Immigration Services",
-    description: "Website name."
+    value: "Canada Immigration Services"
   },
   {
     key: "footer_description",
     value:
-      "Visa and immigration application information and support.",
-    description: "Footer description."
+      "Visa and immigration application information and support."
   },
   {
     key: "footer_copyright",
-    value: "All rights reserved.",
-    description: "Footer copyright text."
+    value: "All rights reserved."
   },
   {
     key: "homepage_hero_title",
-    value: "Canada Immigration Services",
-    description: "Homepage hero title."
+    value: "Canada Immigration Services"
   },
   {
     key: "homepage_hero_description",
     value:
-      "Professional information and support for Canadian visa and immigration applications.",
-    description: "Homepage hero description."
+      "Professional information and support for Canadian visa and immigration applications."
   },
   {
     key: "homepage_hero_button_text",
-    value: "Apply for Visa",
-    description: "Homepage hero button text."
+    value: "Apply for Visa"
   },
   {
     key: "homepage_about_title",
-    value: "About Canada Immigration Services",
-    description: "Homepage about section title."
+    value: "About Canada Immigration Services"
   },
   {
     key: "homepage_about_description",
     value:
-      "Learn more about our visa and immigration application services.",
-    description: "Homepage about section description."
+      "Learn more about our visa and immigration application services."
   },
   {
     key: "homepage_process_title",
-    value: "How the Process Works",
-    description: "Homepage process section title."
+    value: "How the Process Works"
   },
   {
     key: "homepage_process_description",
     value:
-      "Submit your application, provide the required information and documents, and monitor your application status.",
-    description: "Homepage process section description."
+      "Submit your application, provide the required information and documents, and monitor your application status."
   },
   {
     key: "homepage_cta_title",
-    value: "Ready to Start Your Application?",
-    description: "Homepage call-to-action title."
+    value: "Ready to Start Your Application?"
   },
   {
     key: "homepage_cta_description",
     value:
-      "Start your application and provide the information required for processing.",
-    description: "Homepage call-to-action description."
+      "Start your application and provide the information required for processing."
   },
   {
     key: "about_title",
-    value: "About Us",
-    description: "About page title."
+    value: "About Us"
   },
   {
     key: "about_description",
     value:
-      "Information about Canada Immigration Services.",
-    description: "About page description."
+      "Information about Canada Immigration Services."
   },
   {
     key: "about_mission_title",
-    value: "Our Mission",
-    description: "About page mission title."
+    value: "Our Mission"
   },
   {
     key: "about_mission_description",
     value:
-      "To provide clear information and organized support throughout the application process.",
-    description: "About page mission description."
+      "To provide clear information and organized support throughout the application process."
   },
   {
     key: "about_approach_title",
-    value: "Our Approach",
-    description: "About page approach title."
+    value: "Our Approach"
   },
   {
     key: "about_approach_description",
     value:
-      "We organize application information, documents, messages, and status updates in one place.",
-    description: "About page approach description."
+      "We organize application information, documents, messages, and status updates in one place."
   },
   {
     key: "visa_services_title",
-    value: "Visa Services",
-    description: "Visa services page title."
+    value: "Services"
   },
   {
     key: "visa_services_description",
     value:
-      "Explore the visa and immigration services available.",
-    description: "Visa services page description."
+      "Explore the visa and immigration services available."
   },
   {
     key: "apply_title",
-    value: "Apply for Visa",
-    description: "Application page title."
+    value: "Apply for Visa"
   },
   {
     key: "apply_description",
     value:
-      "Complete the application form and provide the required information.",
-    description: "Application page description."
+      "Complete the application form and provide the required information."
   },
   {
     key: "check_application_title",
-    value: "Check Your Application",
-    description: "Application check page title."
+    value: "Check Your Application"
   },
   {
     key: "check_application_description",
     value:
-      "Enter your Application Number to check your application information.",
-    description: "Application check page description."
+      "Enter your Application Number to check your application information."
   },
   {
     key: "contact_title",
-    value: "Contact Us",
-    description: "Contact page title."
+    value: "Contact Us"
   },
   {
     key: "contact_description",
     value:
-      "Contact Canada Immigration Services for assistance and information.",
-    description: "Contact page description."
+      "Contact Canada Immigration Services for assistance and information."
   },
   {
     key: "contact_email",
-    value: "",
-    description: "Public contact email address."
+    value: ""
   },
   {
     key: "contact_phone",
-    value: "",
-    description: "Public contact phone number."
+    value: ""
   },
   {
     key: "contact_address",
-    value: "",
-    description: "Public contact address."
+    value: ""
   },
   {
     key: "contact_whatsapp",
-    value: "",
-    description: "Public WhatsApp contact number."
+    value: ""
   }
 ];
 
 function AdminWebsiteSettingsPage() {
   const [settings, setSettings] =
     useState([]);
+
   const [loading, setLoading] =
     useState(true);
+
   const [saving, setSaving] =
     useState(false);
+
   const [error, setError] =
     useState("");
+
   const [success, setSuccess] =
     useState("");
 
   const [form, setForm] = useState({
     key: "",
-    value: "",
-    description: ""
+    value: ""
   });
 
   const [editingId, setEditingId] =
@@ -195,11 +168,13 @@ function AdminWebsiteSettingsPage() {
 
   const [logoFile, setLogoFile] =
     useState(null);
+
   const [faviconFile, setFaviconFile] =
     useState(null);
 
   const [logoUploading, setLogoUploading] =
     useState(false);
+
   const [
     faviconUploading,
     setFaviconUploading
@@ -215,8 +190,13 @@ function AdminWebsiteSettingsPage() {
 
       setSettings(data || []);
     } catch (loadError) {
+      console.error(
+        "Unable to load website settings:",
+        loadError
+      );
+
       setError(
-        loadError.message ||
+        loadError?.message ||
           "Website settings could not be loaded."
       );
     } finally {
@@ -241,8 +221,7 @@ function AdminWebsiteSettingsPage() {
   function resetForm() {
     setForm({
       key: "",
-      value: "",
-      description: ""
+      value: ""
     });
 
     setEditingId(null);
@@ -252,10 +231,17 @@ function AdminWebsiteSettingsPage() {
     setEditingId(setting.id);
 
     setForm({
-      key: setting.key || "",
-      value: setting.value || "",
-      description:
-        setting.description || ""
+      key:
+        setting.setting_key || "",
+      value:
+        typeof setting.setting_value ===
+        "string"
+          ? setting.setting_value
+          : JSON.stringify(
+              setting.setting_value ?? {},
+              null,
+              2
+            )
     });
 
     setError("");
@@ -267,35 +253,56 @@ function AdminWebsiteSettingsPage() {
     });
   }
 
+  function parseSettingValue(value) {
+    if (typeof value !== "string") {
+      return value ?? {};
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return "";
+    }
+
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return trimmed;
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
+
+    if (saving) {
+      return;
+    }
 
     setSaving(true);
     setError("");
     setSuccess("");
 
     try {
+      const settingData = {
+        key: form.key,
+        value: parseSettingValue(
+          form.value
+        )
+      };
+
       if (editingId) {
         await updateWebsiteSetting(
           editingId,
-          {
-            key: form.key,
-            value: form.value,
-            description:
-              form.description
-          }
+          settingData
         );
 
         setSuccess(
           "Website setting updated successfully."
         );
       } else {
-        await createWebsiteSetting({
-          key: form.key,
-          value: form.value,
-          description:
-            form.description
-        });
+        await createWebsiteSetting(
+          settingData
+        );
 
         setSuccess(
           "Website setting created successfully."
@@ -305,8 +312,13 @@ function AdminWebsiteSettingsPage() {
       resetForm();
       await loadSettings();
     } catch (saveError) {
+      console.error(
+        "Unable to save website setting:",
+        saveError
+      );
+
       setError(
-        saveError.message ||
+        saveError?.message ||
           "The website setting could not be saved."
       );
     } finally {
@@ -314,12 +326,10 @@ function AdminWebsiteSettingsPage() {
     }
   }
 
-  async function handleDelete(
-    setting
-  ) {
+  async function handleDelete(setting) {
     const confirmed =
       window.confirm(
-        `Delete the "${setting.key}" website setting?`
+        `Delete the "${setting.setting_key}" website setting?`
       );
 
     if (!confirmed) {
@@ -346,8 +356,13 @@ function AdminWebsiteSettingsPage() {
 
       await loadSettings();
     } catch (deleteError) {
+      console.error(
+        "Unable to delete website setting:",
+        deleteError
+      );
+
       setError(
-        deleteError.message ||
+        deleteError?.message ||
           "The website setting could not be deleted."
       );
     }
@@ -361,7 +376,7 @@ function AdminWebsiteSettingsPage() {
     const existing =
       settings.find(
         (setting) =>
-          setting.key === key
+          setting.setting_key === key
       );
 
     if (existing) {
@@ -374,13 +389,11 @@ function AdminWebsiteSettingsPage() {
     } else {
       await createWebsiteSetting({
         key,
-        value: publicUrl,
-        description:
-          assetType === "logo"
-            ? "Website logo."
-            : "Website favicon."
+        value: publicUrl
       });
     }
+
+    return assetType;
   }
 
   async function handleAssetUpload(
@@ -438,8 +451,13 @@ function AdminWebsiteSettingsPage() {
 
       await loadSettings();
     } catch (uploadError) {
+      console.error(
+        `Unable to upload ${assetType}:`,
+        uploadError
+      );
+
       setError(
-        uploadError.message ||
+        uploadError?.message ||
           `The ${assetType} could not be uploaded.`
       );
     } finally {
@@ -452,21 +470,57 @@ function AdminWebsiteSettingsPage() {
   }
 
   function getSettingValue(key) {
-    return (
+    const setting =
       settings.find(
-        (setting) =>
-          setting.key === key
-      )?.value || ""
+        (item) =>
+          item.setting_key === key
+      );
+
+    if (!setting) {
+      return "";
+    }
+
+    if (
+      typeof setting.setting_value ===
+      "string"
+    ) {
+      return setting.setting_value;
+    }
+
+    return JSON.stringify(
+      setting.setting_value ?? {}
     );
+  }
+
+  function useDefaultSetting(setting) {
+    setForm({
+      key: setting.key,
+      value:
+        typeof setting.value ===
+        "string"
+          ? setting.value
+          : JSON.stringify(
+              setting.value ?? {},
+              null,
+              2
+            )
+    });
+
+    setEditingId(null);
+    setError("");
+    setSuccess("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
   }
 
   const logoUrl =
     getSettingValue("site_logo");
 
   const faviconUrl =
-    getSettingValue(
-      "site_favicon"
-    );
+    getSettingValue("site_favicon");
 
   return (
     <main className="page">
@@ -671,30 +725,17 @@ function AdminWebsiteSettingsPage() {
               <textarea
                 id="setting-value"
                 name="value"
-                rows="5"
+                rows="6"
                 value={form.value}
                 onChange={handleChange}
                 placeholder="Enter the setting value"
                 disabled={saving}
               />
-            </div>
 
-            <div className="form-group">
-              <label htmlFor="setting-description">
-                Description
-              </label>
-
-              <textarea
-                id="setting-description"
-                name="description"
-                rows="3"
-                value={
-                  form.description
-                }
-                onChange={handleChange}
-                placeholder="Describe what this setting controls"
-                disabled={saving}
-              />
+              <small>
+                Text values can be entered normally.
+                JSON values are also supported.
+              </small>
             </div>
 
             <div className="form-actions">
@@ -751,7 +792,7 @@ function AdminWebsiteSettingsPage() {
                   <tr>
                     <th>Key</th>
                     <th>Value</th>
-                    <th>Description</th>
+                    <th>Updated</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -764,7 +805,9 @@ function AdminWebsiteSettingsPage() {
                       >
                         <td>
                           <strong>
-                            {setting.key}
+                            {
+                              setting.setting_key
+                            }
                           </strong>
                         </td>
 
@@ -777,14 +820,18 @@ function AdminWebsiteSettingsPage() {
                                 "anywhere"
                             }}
                           >
-                            {setting.value ||
-                              "—"}
+                            {getSettingValue(
+                              setting.setting_key
+                            ) || "—"}
                           </div>
                         </td>
 
                         <td>
-                          {setting.description ||
-                            "—"}
+                          {setting.updated_at
+                            ? new Date(
+                                setting.updated_at
+                              ).toLocaleString()
+                            : "—"}
                         </td>
 
                         <td>
@@ -844,17 +891,12 @@ function AdminWebsiteSettingsPage() {
                     type="button"
                     className="btn btn-secondary"
                     onClick={() =>
-                      setForm({
-                        key: setting.key,
-                        value:
-                          setting.value,
-                        description:
-                          setting.description
-                      })
+                      useDefaultSetting(
+                        setting
+                      )
                     }
                   >
-                    Use{" "}
-                    {setting.key}
+                    Use {setting.key}
                   </button>
                 )
               )}
