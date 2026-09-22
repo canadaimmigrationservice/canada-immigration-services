@@ -1,10 +1,58 @@
 import { supabase } from "../lib/supabase";
 
+const EMAIL_SETTING_FIELDS = [
+  "notifications_enabled",
+  "admin_email",
+  "applicant_application_submitted",
+  "applicant_application_number_assigned",
+  "applicant_status_changed",
+  "applicant_document_requested",
+  "applicant_document_received",
+  "applicant_message_received",
+  "applicant_decision_updated",
+  "applicant_passport_instructions",
+  "applicant_visa_document_available",
+  "admin_new_application",
+  "admin_applicant_document_uploaded"
+];
+
+function cleanEmailSettings(settings) {
+  if (!settings || typeof settings !== "object") {
+    return {};
+  }
+
+  const cleaned = {};
+
+  for (const field of EMAIL_SETTING_FIELDS) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        settings,
+        field
+      )
+    ) {
+      cleaned[field] = settings[field];
+    }
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      cleaned,
+      "admin_email"
+    )
+  ) {
+    cleaned.admin_email =
+      cleaned.admin_email?.trim() || null;
+  }
+
+  return cleaned;
+}
+
 export async function getAdminEmailSettings() {
   const { data, error } = await supabase
     .from("email_settings")
     .select("*")
-    .order("created_at", { ascending: true });
+    .limit(1)
+    .maybeSingle();
 
   if (error) {
     throw new Error(
@@ -13,30 +61,25 @@ export async function getAdminEmailSettings() {
     );
   }
 
-  return data || [];
+  return data ? [data] : [];
 }
 
-export async function createEmailSetting(settingData) {
-  if (!settingData?.provider?.trim()) {
-    throw new Error("Email provider is required.");
-  }
+export async function createEmailSetting(
+  settingData
+) {
+  const cleanSettings =
+    cleanEmailSettings(settingData);
 
   const { data, error } = await supabase
     .from("email_settings")
-    .insert({
-      provider: settingData.provider.trim(),
-      is_enabled: settingData.is_enabled !== false,
-      admin_email: settingData.admin_email?.trim() || null,
-      sender_name: settingData.sender_name?.trim() || null,
-      configuration: settingData.configuration || {}
-    })
+    .insert(cleanSettings)
     .select("*")
     .single();
 
   if (error) {
     throw new Error(
       error.message ||
-        "The email setting could not be created."
+        "The email settings could not be created."
     );
   }
 
@@ -48,72 +91,34 @@ export async function updateEmailSetting(
   updates
 ) {
   if (!settingId) {
-    throw new Error("Email setting ID is required.");
+    throw new Error(
+      "Email setting ID is required."
+    );
   }
 
   if (!updates || typeof updates !== "object") {
-    throw new Error("Email setting updates are required.");
+    throw new Error(
+      "Email setting updates are required."
+    );
   }
 
-  const allowedFields = [
-    "provider",
-    "is_enabled",
-    "admin_email",
-    "sender_name",
-    "configuration"
-  ];
+  const cleanUpdates =
+    cleanEmailSettings(updates);
 
-  const cleanUpdates = {};
-
-  for (const field of allowedFields) {
-    if (Object.prototype.hasOwnProperty.call(updates, field)) {
-      cleanUpdates[field] = updates[field];
-    }
-  }
-
-  if (Object.keys(cleanUpdates).length === 0) {
+  if (
+    Object.keys(cleanUpdates).length === 0
+  ) {
     throw new Error(
       "No email setting changes were provided."
     );
   }
 
-  if (
-    Object.prototype.hasOwnProperty.call(
-      cleanUpdates,
-      "provider"
-    )
-  ) {
-    if (!cleanUpdates.provider?.trim()) {
-      throw new Error("Email provider is required.");
-    }
-
-    cleanUpdates.provider =
-      cleanUpdates.provider.trim();
-  }
-
-  if (
-    Object.prototype.hasOwnProperty.call(
-      cleanUpdates,
-      "admin_email"
-    )
-  ) {
-    cleanUpdates.admin_email =
-      cleanUpdates.admin_email?.trim() || null;
-  }
-
-  if (
-    Object.prototype.hasOwnProperty.call(
-      cleanUpdates,
-      "sender_name"
-    )
-  ) {
-    cleanUpdates.sender_name =
-      cleanUpdates.sender_name?.trim() || null;
-  }
-
   const { data, error } = await supabase
     .from("email_settings")
-    .update(cleanUpdates)
+    .update({
+      ...cleanUpdates,
+      updated_at: new Date().toISOString()
+    })
     .eq("id", settingId)
     .select("*")
     .single();
@@ -121,16 +126,20 @@ export async function updateEmailSetting(
   if (error) {
     throw new Error(
       error.message ||
-        "The email setting could not be updated."
+        "The email settings could not be updated."
     );
   }
 
   return data;
 }
 
-export async function deleteEmailSetting(settingId) {
+export async function deleteEmailSetting(
+  settingId
+) {
   if (!settingId) {
-    throw new Error("Email setting ID is required.");
+    throw new Error(
+      "Email setting ID is required."
+    );
   }
 
   const { error } = await supabase
@@ -141,7 +150,7 @@ export async function deleteEmailSetting(settingId) {
   if (error) {
     throw new Error(
       error.message ||
-        "The email setting could not be deleted."
+        "The email settings could not be deleted."
     );
   }
 }
