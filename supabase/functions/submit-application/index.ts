@@ -324,7 +324,7 @@ Canada Immigration Services`;
     } = await supabaseAdmin
       .from("email_settings")
       .select(
-        "admin_email, is_enabled"
+        "admin_email, notifications_enabled"
       )
       .limit(1)
       .maybeSingle();
@@ -344,7 +344,7 @@ Canada Immigration Services`;
       );
 
     if (
-      emailSettings?.is_enabled !== false &&
+      emailSettings?.notifications_enabled !== false &&
       adminEmail
     ) {
       const adminMessage = `A new immigration application has been submitted.
