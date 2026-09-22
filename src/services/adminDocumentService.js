@@ -1,6 +1,8 @@
 import { supabase } from "../lib/supabase";
 
-export async function getAdminApplicantDocuments(filters = {}) {
+export async function getAdminApplicantDocuments(
+  filters = {}
+) {
   let query = supabase
     .from("applicant_documents")
     .select(`
@@ -13,16 +15,14 @@ export async function getAdminApplicantDocuments(filters = {}) {
         email
       )
     `)
-    .order("created_at", { ascending: false });
+    .order("uploaded_at", {
+      ascending: false
+    });
 
   if (filters.applicationId) {
-    query = query.eq("application_id", filters.applicationId);
-  }
-
-  if (filters.documentType?.trim()) {
     query = query.eq(
-      "document_type",
-      filters.documentType.trim()
+      "application_id",
+      filters.applicationId
     );
   }
 
@@ -38,13 +38,16 @@ export async function getAdminApplicantDocuments(filters = {}) {
   return data || [];
 }
 
-async function runAdminDocumentAction(body) {
-  const { data, error } = await supabase.functions.invoke(
-    "admin-document-action",
-    {
-      body
-    }
-  );
+async function runAdminDocumentAction(
+  body
+) {
+  const { data, error } =
+    await supabase.functions.invoke(
+      "admin-document-action",
+      {
+        body
+      }
+    );
 
   if (error) {
     throw new Error(
@@ -67,15 +70,21 @@ export async function deleteAdminApplicantDocument(
   documentId
 ) {
   if (!documentId) {
-    throw new Error("Document ID is required.");
+    throw new Error(
+      "Document ID is required."
+    );
   }
 
-  const { data: document, error: fetchError } =
-    await supabase
-      .from("applicant_documents")
-      .select("id, storage_path")
-      .eq("id", documentId)
-      .maybeSingle();
+  const {
+    data: document,
+    error: fetchError
+  } = await supabase
+    .from("applicant_documents")
+    .select(
+      "id, storage_path"
+    )
+    .eq("id", documentId)
+    .maybeSingle();
 
   if (fetchError) {
     throw new Error(
@@ -93,15 +102,18 @@ export async function deleteAdminApplicantDocument(
   if (document.storage_path) {
     await runAdminDocumentAction({
       action: "delete",
-      bucket: "applicant-documents",
-      storage_path: document.storage_path
+      bucket:
+        "applicant-documents",
+      storage_path:
+        document.storage_path
     });
   }
 
-  const { error } = await supabase
-    .from("applicant_documents")
-    .delete()
-    .eq("id", documentId);
+  const { error } =
+    await supabase
+      .from("applicant_documents")
+      .delete()
+      .eq("id", documentId);
 
   if (error) {
     throw new Error(
@@ -115,15 +127,20 @@ export async function getAdminDocumentSignedUrl(
   storagePath
 ) {
   if (!storagePath?.trim()) {
-    throw new Error("Storage path is required.");
+    throw new Error(
+      "Storage path is required."
+    );
   }
 
-  const result = await runAdminDocumentAction({
-    action: "signed-url",
-    bucket: "applicant-documents",
-    storage_path: storagePath.trim(),
-    expires_in: 300
-  });
+  const result =
+    await runAdminDocumentAction({
+      action: "signed-url",
+      bucket:
+        "applicant-documents",
+      storage_path:
+        storagePath.trim(),
+      expires_in: 300
+    });
 
   return result.signed_url;
 }
@@ -134,33 +151,50 @@ export async function uploadAdminApplicantDocument({
   storagePath
 }) {
   if (!applicationId) {
-    throw new Error("Application ID is required.");
+    throw new Error(
+      "Application ID is required."
+    );
   }
 
   if (!(file instanceof File)) {
-    throw new Error("A document file is required.");
+    throw new Error(
+      "A document file is required."
+    );
   }
 
   if (!storagePath?.trim()) {
-    throw new Error("Storage path is required.");
+    throw new Error(
+      "Storage path is required."
+    );
   }
 
-  const formData = new FormData();
+  const formData =
+    new FormData();
 
-  formData.append("action", "upload");
+  formData.append(
+    "action",
+    "upload"
+  );
+
   formData.append(
     "bucket",
     "applicant-documents"
   );
+
   formData.append(
     "storage_path",
     storagePath.trim()
   );
+
   formData.append(
     "application_id",
     applicationId
   );
-  formData.append("file", file);
+
+  formData.append(
+    "file",
+    file
+  );
 
   const { data, error } =
     await supabase.functions.invoke(
