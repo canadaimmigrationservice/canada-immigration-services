@@ -32,7 +32,7 @@ export async function getAdminMessages(
     filters.isVisible !== ""
   ) {
     query = query.eq(
-      "is_visible",
+      "is_visible_to_applicant",
       filters.isVisible === true
     );
   }
@@ -65,6 +65,10 @@ export async function createApplicationMessage(
     );
   }
 
+  const isVisible =
+    messageData.is_visible_to_applicant !==
+    false;
+
   const { data, error } =
     await supabase
       .from("application_messages")
@@ -73,8 +77,8 @@ export async function createApplicationMessage(
           messageData.application_id,
         message:
           messageData.message.trim(),
-        is_visible:
-          messageData.is_visible !== false
+        is_visible_to_applicant:
+          isVisible
       })
       .select("*")
       .single();
@@ -87,7 +91,7 @@ export async function createApplicationMessage(
   }
 
   if (
-    data.is_visible &&
+    data.is_visible_to_applicant &&
     messageData.send_email !== false
   ) {
     try {
@@ -103,9 +107,7 @@ export async function createApplicationMessage(
           )
           .maybeSingle();
 
-      if (
-        application?.email
-      ) {
+      if (application?.email) {
         await sendEmailNotification({
           recipient:
             application.email,
@@ -125,7 +127,7 @@ export async function createApplicationMessage(
             `Please check your application for the latest information.\n\n` +
             `Canada Immigration Services`,
           eventType:
-            "application_message_created"
+            "applicant_message_received"
         });
       }
     } catch (emailError) {
@@ -179,11 +181,13 @@ export async function updateApplicationMessage(
   if (
     Object.prototype.hasOwnProperty.call(
       updates,
-      "is_visible"
+      "is_visible_to_applicant"
     )
   ) {
-    cleanUpdates.is_visible =
-      Boolean(updates.is_visible);
+    cleanUpdates.is_visible_to_applicant =
+      Boolean(
+        updates.is_visible_to_applicant
+      );
   }
 
   if (
@@ -226,7 +230,7 @@ export async function setApplicationMessageVisibility(
     await supabase
       .from("application_messages")
       .update({
-        is_visible:
+        is_visible_to_applicant:
           Boolean(isVisible)
       })
       .eq("id", messageId)
