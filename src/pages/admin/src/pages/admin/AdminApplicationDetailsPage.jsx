@@ -51,10 +51,9 @@ function AdminApplicationDetailsPage() {
       setError("");
       setMessage("");
 
-      const data =
-        await getAdminApplicationById(
-          applicationId
-        );
+      const data = await getAdminApplicationById(
+        applicationId
+      );
 
       if (!data) {
         setError("Application not found.");
@@ -124,6 +123,7 @@ function AdminApplicationDetailsPage() {
         );
 
       setApplication(updated);
+
       setMessage(
         "Application Number assigned successfully."
       );
@@ -231,10 +231,9 @@ function AdminApplicationDetailsPage() {
   }
 
   async function handleDelete() {
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this application? This action cannot be undone."
-      );
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this application? This action cannot be undone."
+    );
 
     if (!confirmed) {
       return;
@@ -303,9 +302,7 @@ function AdminApplicationDetailsPage() {
               ← Back to Applications
             </Link>
 
-            <h1>
-              Application Details
-            </h1>
+            <h1>Application Details</h1>
 
             <p>
               Review and manage this applicant's
