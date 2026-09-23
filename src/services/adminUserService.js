@@ -78,3 +78,15 @@ export async function createAdminUser(userData) {
 
   return data;
 }
+
+export async function updateAdminProfile(userId, updates) {
+  return updateAdminUser(userId, updates);
+}
+
+export async function deleteAdminProfile(userId) {
+  return deleteAdminUser(userId);
+}
+
+export async function createAdminProfile(userData) {
+  return createAdminUser(userData);
+}
