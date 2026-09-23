@@ -1,6 +1,6 @@
 import { supabase } from "../lib/supabase";
 
-export async function submitApplication(applicationData) {
+export async function createApplication(applicationData) {
   if (!applicationData || typeof applicationData !== "object") {
     throw new Error("Application data is required.");
   }
@@ -52,7 +52,11 @@ export async function submitApplication(applicationData) {
     );
   }
 
-  return data;
+  return data.application || data;
+}
+
+export async function submitApplication(applicationData) {
+  return createApplication(applicationData);
 }
 
 export async function getApplicationByNumber(
